@@ -107,6 +107,7 @@ struct App {
     last_delta: F,
     last_acc: F,
     train_steps: u32,
+    training: bool,
     log_scale: bool,
     bounds: [f64; 4],
     data_by_class: [Vec<[f64; 2]>; 3],
@@ -138,6 +139,7 @@ impl App {
             last_delta: f64::NAN,
             last_acc: f64::NAN,
             train_steps: 100,
+            training: false,
             log_scale: false,
             bounds,
             data_by_class,
@@ -176,15 +178,10 @@ impl App {
         self.boundary = compute_boundary(&self.net, self.bounds);
     }
 
-    fn train(&mut self) {
-        for _ in 0..self.train_steps {
+    fn run_steps(&mut self, steps: u32) {
+        for _ in 0..steps {
             self.step_once();
         }
-        self.recompute_boundary();
-    }
-
-    fn step(&mut self) {
-        self.step_once();
         self.recompute_boundary();
     }
 
@@ -263,20 +260,26 @@ fn heatmap(ui: &mut egui::Ui, label: &str, data: &[F], rows: usize, cols: usize)
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.training {
+            self.run_steps(self.train_steps);
+            ui.ctx().request_repaint();
+        }
+
         egui::Panel::top("controls").show(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.button("Train").clicked() {
-                    self.train();
+                let train_label = if self.training { "Pause" } else { "Train" };
+                if ui.button(train_label).clicked() {
+                    self.training = !self.training;
                 }
                 if ui.button("Step").clicked() {
-                    self.step();
+                    self.run_steps(self.train_steps);
                 }
                 if ui.button("Reset").clicked() {
                     self.reset();
                 }
                 ui.separator();
                 ui.add(
-                    egui::Slider::new(&mut self.train_steps, 1..=5000).text("train steps"),
+                    egui::Slider::new(&mut self.train_steps, 1..=5000).text("steps"),
                 );
                 ui.add(egui::Slider::new(&mut self.net.lr, 0.0..=1.0).text("lr"));
                 ui.checkbox(&mut self.log_scale, "log loss");
