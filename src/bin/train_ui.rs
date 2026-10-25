@@ -1,11 +1,102 @@
 // src/bin/train_ui.rs
 // A visualization dashboard for the Net in src/net.rs.
 use eframe::egui;
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use egui_plot::{Heatmap, Legend, Line, MarkerShape, Plot, PlotPoint, PlotPoints, Points};
 use gptshin::net::Net;
 use gptshin::ops::*;
 use gptshin::rng::Rng;
 use gptshin::toy::make_spiral;
+
+const GRID: usize = 60;
+
+fn class_color(i: usize, alpha: u8) -> egui::Color32 {
+    match i {
+        0 => egui::Color32::from_rgba_unmultiplied(220, 50, 47, alpha),
+        1 => egui::Color32::from_rgba_unmultiplied(0, 160, 90, alpha),
+        _ => egui::Color32::from_rgba_unmultiplied(38, 139, 210, alpha),
+    }
+}
+
+fn argmax(p: &[F; 3]) -> usize {
+    let mut best = 0;
+    for j in 1..3 {
+        if p[j] > p[best] {
+            best = j;
+        }
+    }
+    best
+}
+
+fn compute_bounds(x: &[F]) -> [f64; 4] {
+    let (mut xmin, mut xmax, mut ymin, mut ymax) = (
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    );
+    for i in (0..x.len()).step_by(2) {
+        xmin = xmin.min(x[i]);
+        xmax = xmax.max(x[i]);
+        ymin = ymin.min(x[i + 1]);
+        ymax = ymax.max(x[i + 1]);
+    }
+    let px = (xmax - xmin) * 0.05;
+    let py = (ymax - ymin) * 0.05;
+    [xmin - px, xmax + px, ymin - py, ymax + py]
+}
+
+fn group_by_class(x: &[F], y: &[usize]) -> [Vec<[f64; 2]>; 3] {
+    let mut out: [Vec<[f64; 2]>; 3] = Default::default();
+    for i in 0..y.len() {
+        out[y[i]].push([x[2 * i], x[2 * i + 1]]);
+    }
+    out
+}
+
+// Softmax probabilities for a single input point, without changing Net.
+fn predict(net: &Net, px: F, py: F) -> [F; 3] {
+    let h = net.h;
+    let input = [px, py];
+    let mut z1 = vec![0.0; h];
+    mm(&input, &net.ws[0], &mut z1, 1, 2, h);
+    add_bias(&mut z1, &net.bs[0]);
+    let a1 = relu(&z1);
+
+    let mut z2 = vec![0.0; h];
+    mm(&a1, &net.ws[1], &mut z2, 1, h, h);
+    add_bias(&mut z2, &net.bs[1]);
+    let a2 = relu(&z2);
+
+    let mut logits = vec![0.0; 3];
+    mm(&a2, &net.ws[2], &mut logits, 1, h, 3);
+    add_bias(&mut logits, &net.bs[2]);
+
+    let m = logits.iter().cloned().fold(F::NEG_INFINITY, F::max);
+    let mut p = [0.0; 3];
+    let mut sum = 0.0;
+    for j in 0..3 {
+        p[j] = (logits[j] - m).exp();
+        sum += p[j];
+    }
+    for j in 0..3 {
+        p[j] /= sum;
+    }
+    p
+}
+
+// Decision boundary: GRID×GRID grid, value = predicted class at each cell.
+fn compute_boundary(net: &Net, bounds: [f64; 4]) -> Vec<f64> {
+    let [xmin, xmax, ymin, ymax] = bounds;
+    let mut values = vec![0.0; GRID * GRID];
+    for iy in 0..GRID {
+        let py = ymin + (ymax - ymin) * (iy as f64 + 0.5) / GRID as f64;
+        for ix in 0..GRID {
+            let px = xmin + (xmax - xmin) * (ix as f64 + 0.5) / GRID as f64;
+            values[iy * GRID + ix] = argmax(&predict(net, px, py)) as f64;
+        }
+    }
+    values
+}
 
 struct App {
     net: Net,
@@ -14,14 +105,18 @@ struct App {
     n: usize,
     loss_hist: Vec<[f64; 2]>,
     acc_hist: Vec<[f64; 2]>,
-    playing: bool,
-    steps_per_frame: u32,
-    log_scale: bool,
     seed: u64,
     prev_loss: Option<F>,
     last_loss: F,
     last_delta: F,
     last_acc: F,
+    train_steps: u32,
+    log_scale: bool,
+    bounds: [f64; 4],
+    data_by_class: [Vec<[f64; 2]>; 3],
+    boundary: Vec<f64>,
+    clicked: Option<[f64; 2]>,
+    probs: Option<[F; 3]>,
 }
 
 impl App {
@@ -30,21 +125,29 @@ impl App {
         let mut rng = Rng::new(seed);
         let (x, y) = make_spiral(100, 3, &mut rng);
         let n = y.len();
+        let net = Net::new(64, &mut rng);
+        let bounds = compute_bounds(&x);
+        let data_by_class = group_by_class(&x, &y);
+        let boundary = compute_boundary(&net, bounds);
         App {
-            net: Net::new(64, &mut rng),
+            net,
             x,
             y,
             n,
             loss_hist: Vec::new(),
             acc_hist: Vec::new(),
-            playing: true,
-            steps_per_frame: 1,
-            log_scale: false,
             seed,
             prev_loss: None,
             last_loss: f64::NAN,
             last_delta: f64::NAN,
             last_acc: f64::NAN,
+            train_steps: 100,
+            log_scale: false,
+            bounds,
+            data_by_class,
+            boundary,
+            clicked: None,
+            probs: None,
         }
     }
 
@@ -55,12 +158,13 @@ impl App {
 
         // recompute logits for accuracy without changing Net
         let mut logits = vec![0.0; self.n * 3];
-        mm(&cache.a, &self.net.w2, &mut logits, self.n, self.net.h, 3);
-        add_bias(&mut logits, &self.net.b2);
+        let a_last = cache.a.last().unwrap();
+        mm(a_last, &self.net.ws[2], &mut logits, self.n, self.net.h, 3);
+        add_bias(&mut logits, &self.net.bs[2]);
         let acc = accuracy(&logits, &self.y, 3);
 
-        let (dw1, db1, dw2, db2) = self.net.backward(&cache, self.n, &self.x);
-        self.net.learn(dw1, db1, dw2, db2);
+        let (dw3, db3, dw2, db2, dw1, db1) = self.net.backward(&cache, self.n, &self.x);
+        self.net.learn(dw1, db1, dw2, db2, dw3, db3);
 
         let step = self.loss_hist.len() as f64;
         self.loss_hist.push([step, loss]);
@@ -68,6 +172,22 @@ impl App {
         self.last_loss = loss;
         self.last_delta = delta;
         self.last_acc = acc;
+    }
+
+    fn recompute_boundary(&mut self) {
+        self.boundary = compute_boundary(&self.net, self.bounds);
+    }
+
+    fn train(&mut self) {
+        for _ in 0..self.train_steps {
+            self.step_once();
+        }
+        self.recompute_boundary();
+    }
+
+    fn step(&mut self) {
+        self.step_once();
+        self.recompute_boundary();
     }
 
     fn reset(&mut self) {
@@ -78,13 +198,17 @@ impl App {
         self.x = x;
         self.y = y;
         self.net = Net::new(64, &mut rng);
+        self.bounds = compute_bounds(&self.x);
+        self.data_by_class = group_by_class(&self.x, &self.y);
+        self.boundary = compute_boundary(&self.net, self.bounds);
         self.loss_hist.clear();
         self.acc_hist.clear();
         self.prev_loss = None;
         self.last_loss = f64::NAN;
         self.last_delta = f64::NAN;
         self.last_acc = f64::NAN;
-        self.playing = true;
+        self.clicked = None;
+        self.probs = None;
     }
 }
 
@@ -141,28 +265,20 @@ fn heatmap(ui: &mut egui::Ui, label: &str, data: &[F], rows: usize, cols: usize)
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        if self.playing {
-            for _ in 0..self.steps_per_frame {
-                self.step_once();
-            }
-            ui.ctx().request_repaint();
-        }
-
         egui::Panel::top("controls").show(ui, |ui| {
             ui.horizontal(|ui| {
-                let play_label = if self.playing { "Pause" } else { "Play" };
-                if ui.button(play_label).clicked() {
-                    self.playing = !self.playing;
+                if ui.button("Train").clicked() {
+                    self.train();
                 }
                 if ui.button("Step").clicked() {
-                    self.step_once();
+                    self.step();
                 }
                 if ui.button("Reset").clicked() {
                     self.reset();
                 }
                 ui.separator();
                 ui.add(
-                    egui::Slider::new(&mut self.steps_per_frame, 1..=200).text("steps/frame"),
+                    egui::Slider::new(&mut self.train_steps, 1..=5000).text("train steps"),
                 );
                 ui.add(egui::Slider::new(&mut self.net.lr, 0.0..=1.0).text("lr"));
                 ui.checkbox(&mut self.log_scale, "log loss");
@@ -171,6 +287,19 @@ impl eframe::App for App {
                     "loss {:.4}   delta {:.2e}   acc {:.3}",
                     self.last_loss, self.last_delta, self.last_acc
                 ));
+                ui.separator();
+                match self.probs {
+                    Some(p) => ui.label(format!(
+                        "click ({:.2},{:.2}) -> class {}  p=[{:.2},{:.2},{:.2}]",
+                        self.clicked.unwrap()[0],
+                        self.clicked.unwrap()[1],
+                        argmax(&p),
+                        p[0],
+                        p[1],
+                        p[2]
+                    )),
+                    None => ui.label("click the spiral to predict"),
+                };
             });
         });
 
@@ -181,26 +310,75 @@ impl eframe::App for App {
                 egui::ScrollArea::horizontal().show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let h = self.net.h;
-                        let w1 = self.net.w1.clone();
+
+                        let w1 = self.net.ws[0].clone();
                         heatmap(ui, "w1 (2×h)", &w1, 2, h);
 
-                        let w2 = &self.net.w2;
-                        let w2t: Vec<F> = (0..3)
-                            .flat_map(|o| (0..h).map(move |hi| w2[hi * 3 + o]))
-                            .collect();
-                        heatmap(ui, "w2ᵀ (3×h)", &w2t, 3, h);
+                        let w2 = self.net.ws[1].clone();
+                        heatmap(ui, "w2 (h×h)", &w2, h, h);
 
-                        let b1 = self.net.b1.clone();
+                        let w3 = &self.net.ws[2];
+                        let w3t: Vec<F> = (0..3)
+                            .flat_map(|o| (0..h).map(move |hi| w3[hi * 3 + o]))
+                            .collect();
+                        heatmap(ui, "w3ᵀ (3×h)", &w3t, 3, h);
+
+                        let b1 = self.net.bs[0].clone();
                         heatmap(ui, "b1 (1×h)", &b1, 1, h);
 
-                        let b2 = self.net.b2.clone();
-                        heatmap(ui, "b2 (1×3)", &b2, 1, 3);
+                        let b2 = self.net.bs[1].clone();
+                        heatmap(ui, "b2 (1×h)", &b2, 1, h);
+
+                        let b3 = self.net.bs[2].clone();
+                        heatmap(ui, "b3 (1×3)", &b3, 1, 3);
                     });
                 });
             });
 
         egui::CentralPanel::default().show(ui, |ui| {
             ui.columns(2, |cols| {
+                let [xmin, xmax, ymin, ymax] = self.bounds;
+                Plot::new("spiral")
+                    .data_aspect(1.0)
+                    .legend(Legend::default())
+                    .show(&mut cols[0], |plot_ui| {
+                        let hm = Heatmap::new(self.boundary.clone(), GRID)
+                            .at(PlotPoint::new(xmin, ymin))
+                            .size((xmax - xmin) as f32, (ymax - ymin) as f32)
+                            .show_labels(false)
+                            .custom_mapping(Box::new(|v| class_color(v as usize, 70)));
+                        plot_ui.add(hm);
+
+                        for c in 0..3 {
+                            let pts = PlotPoints::from(self.data_by_class[c].clone());
+                            plot_ui.add(
+                                Points::new(format!("class {c}"), pts)
+                                    .radius(3.0)
+                                    .filled(true)
+                                    .color(class_color(c, 255)),
+                            );
+                        }
+
+                        if let Some([cx, cy]) = self.clicked {
+                            let pts = PlotPoints::from(vec![[cx, cy]]);
+                            plot_ui.add(
+                                Points::new("clicked", pts)
+                                    .radius(7.0)
+                                    .shape(MarkerShape::Plus)
+                                    .filled(false)
+                                    .color(egui::Color32::BLACK),
+                            );
+                        }
+
+                        let response = plot_ui.response();
+                        if response.clicked() {
+                            if let Some(pp) = plot_ui.pointer_coordinate() {
+                                self.clicked = Some([pp.x, pp.y]);
+                                self.probs = Some(predict(&self.net, pp.x, pp.y));
+                            }
+                        }
+                    });
+
                 let loss_pts: Vec<[f64; 2]> = self
                     .loss_hist
                     .iter()
@@ -210,21 +388,18 @@ impl eframe::App for App {
                     })
                     .collect();
                 Plot::new("loss")
-                    .height(320.0)
+                    .height(280.0)
                     .legend(Legend::default())
-                    .show(&mut cols[0], |plot_ui| {
+                    .show(&mut cols[1], |plot_ui| {
                         plot_ui.line(
-                            Line::new(
-                                "loss",
-                                PlotPoints::from(loss_pts),
-                            )
-                            .color(egui::Color32::from_rgb(0, 130, 200)),
+                            Line::new("loss", PlotPoints::from(loss_pts))
+                                .color(egui::Color32::from_rgb(0, 130, 200)),
                         );
                     });
 
                 let acc_pts: Vec<[f64; 2]> = self.acc_hist.clone();
                 Plot::new("accuracy")
-                    .height(320.0)
+                    .height(280.0)
                     .legend(Legend::default())
                     .show(&mut cols[1], |plot_ui| {
                         plot_ui.line(
