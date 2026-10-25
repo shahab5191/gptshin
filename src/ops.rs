@@ -102,3 +102,7 @@ pub fn add_bias(a: &mut [F], b: &[F]) {
 pub fn relu(a: &[F]) -> Vec<F> {
     a.par_iter().map(|x| x.max(0.0)).collect()
 }
+
+pub fn weighted_sub(a: &mut [F], b: &[F], w: F) {
+    a.par_iter_mut().zip(b).for_each(|(a, b)| *a -= w * b);
+}
