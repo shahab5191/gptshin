@@ -1,0 +1,15 @@
+# Rust / Cargo
+target/
+debug/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+The target/ and .venv/ lines (unanchored) will also cover stage1/target/ and stage2/.venv/.
