@@ -55,22 +55,18 @@ fn group_by_class(x: &[F], y: &[usize]) -> [Vec<[f64; 2]>; 3] {
 
 // Softmax probabilities for a single input point, without changing Net.
 fn predict(net: &Net, px: F, py: F) -> [F; 3] {
-    let h = net.h;
-    let input = [px, py];
-    let mut z1 = vec![0.0; h];
-    mm(&input, &net.ws[0], &mut z1, 1, 2, h);
-    add_bias(&mut z1, &net.bs[0]);
-    let a1 = relu(&z1);
+    let n = 1;
+    let layers = net.ws.len();
+    let mut act = vec![px, py];
+    for i in 0..layers {
+        let (in_dim, out_dim) = net.dimensions[i];
+        let mut next = vec![0.0; n * out_dim];
+        mm(&act, &net.ws[i], &mut next, n, in_dim, out_dim);
+        add_bias(&mut next, &net.bs[i]);
+        act = if i == layers - 1 { next } else { relu(&next) };
+    }
 
-    let mut z2 = vec![0.0; h];
-    mm(&a1, &net.ws[1], &mut z2, 1, h, h);
-    add_bias(&mut z2, &net.bs[1]);
-    let a2 = relu(&z2);
-
-    let mut logits = vec![0.0; 3];
-    mm(&a2, &net.ws[2], &mut logits, 1, h, 3);
-    add_bias(&mut logits, &net.bs[2]);
-
+    let logits = act;
     let m = logits.iter().cloned().fold(F::NEG_INFINITY, F::max);
     let mut p = [0.0; 3];
     let mut sum = 0.0;
@@ -157,14 +153,16 @@ impl App {
         self.prev_loss = Some(loss);
 
         // recompute logits for accuracy without changing Net
-        let mut logits = vec![0.0; self.n * 3];
+        let last = self.net.ws.len() - 1;
+        let (in_dim, out_dim) = self.net.dimensions[last];
+        let mut logits = vec![0.0; self.n * out_dim];
         let a_last = cache.a.last().unwrap();
-        mm(a_last, &self.net.ws[2], &mut logits, self.n, self.net.h, 3);
-        add_bias(&mut logits, &self.net.bs[2]);
-        let acc = accuracy(&logits, &self.y, 3);
+        mm(a_last, &self.net.ws[last], &mut logits, self.n, in_dim, out_dim);
+        add_bias(&mut logits, &self.net.bs[last]);
+        let acc = accuracy(&logits, &self.y, out_dim);
 
-        let (dw3, db3, dw2, db2, dw1, db1) = self.net.backward(&cache, self.n, &self.x);
-        self.net.learn(dw1, db1, dw2, db2, dw3, db3);
+        let (dws, dbs) = self.net.backward(&cache, self.n, &self.x);
+        self.net.learn(dws, dbs);
 
         let step = self.loss_hist.len() as f64;
         self.loss_hist.push([step, loss]);
@@ -309,28 +307,23 @@ impl eframe::App for App {
             .show(ui, |ui| {
                 egui::ScrollArea::horizontal().show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let h = self.net.h;
-
-                        let w1 = self.net.ws[0].clone();
-                        heatmap(ui, "w1 (2×h)", &w1, 2, h);
-
-                        let w2 = self.net.ws[1].clone();
-                        heatmap(ui, "w2 (h×h)", &w2, h, h);
-
-                        let w3 = &self.net.ws[2];
-                        let w3t: Vec<F> = (0..3)
-                            .flat_map(|o| (0..h).map(move |hi| w3[hi * 3 + o]))
-                            .collect();
-                        heatmap(ui, "w3ᵀ (3×h)", &w3t, 3, h);
-
-                        let b1 = self.net.bs[0].clone();
-                        heatmap(ui, "b1 (1×h)", &b1, 1, h);
-
-                        let b2 = self.net.bs[1].clone();
-                        heatmap(ui, "b2 (1×h)", &b2, 1, h);
-
-                        let b3 = self.net.bs[2].clone();
-                        heatmap(ui, "b3 (1×3)", &b3, 1, 3);
+                        for i in 0..self.net.ws.len() {
+                            let (in_dim, out_dim) = self.net.dimensions[i];
+                            heatmap(
+                                ui,
+                                &format!("w{} ({}×{})", i + 1, in_dim, out_dim),
+                                &self.net.ws[i],
+                                in_dim,
+                                out_dim,
+                            );
+                            heatmap(
+                                ui,
+                                &format!("b{} (1×{})", i + 1, out_dim),
+                                &self.net.bs[i],
+                                1,
+                                out_dim,
+                            );
+                        }
                     });
                 });
             });

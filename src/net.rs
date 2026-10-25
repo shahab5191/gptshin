@@ -8,6 +8,7 @@ pub struct Net {
     pub lr: F, // learning rate
     pub ws: Vec<Vec<F>>,
     pub bs: Vec<Vec<F>>,
+    pub dimensions: Vec<(usize, usize)>,
 }
 
 // Cache holds intermediate results for the forward pass
@@ -24,13 +25,15 @@ impl Net {
             let s = (2.0 / fan_in as F).sqrt();
             (0..len).map(|_| rng.normal() * s).collect()
         };
-        let ws = vec![he(2, 2 * h), he(h, h * h), he(h, h * 3)];
-        let bs = vec![vec![0.0; h], vec![0.0; h], vec![0.0; 3]];
+        let dimensions = vec![(2, h), (h, h), (h, h / 2), (h / 2, 3)];
+        let ws = vec![he(2, 2 * h), he(h, h * h), he(h, h * (h / 2)), he(h / 2, (h / 2) * 3)];
+        let bs = vec![vec![0.0; h], vec![0.0; h], vec![0.0; h / 2], vec![0.0; 3]];
         Net {
             h,
             lr: 0.1,
             ws,
             bs,
+            dimensions
         }
     }
 
@@ -38,7 +41,7 @@ impl Net {
     // y is a vector of target labels
     // n is the number of examples
     pub fn forward(&self, x: &[F], n: usize, y: &Vec<usize>) -> (Cache, F) {
-        assert_eq!(x.len(), 2 * n);
+        assert_eq!(x.len(), self.dimensions[0].0 * n);
 
         let layers_count: usize = self.ws.len();
 
@@ -46,8 +49,9 @@ impl Net {
         let mut a: Vec<Vec<F>> = Vec::new();
         let mut act = x.to_vec();
         for i in 0..layers_count - 1 {
-            let mut current_z = vec![0.0; n * self.bs[i].len()];
-            mm(&act, &self.ws[i], &mut current_z, n, act.len() / n, self.bs[i].len());
+            let (in_dim, out_dim) = self.dimensions[i];
+            let mut current_z = vec![0.0; n * out_dim];
+            mm(&act, &self.ws[i], &mut current_z, n, in_dim, out_dim);
             add_bias(&mut current_z, &self.bs[i]);
             let act_i = relu(&current_z);
             z.push(current_z);
@@ -55,10 +59,12 @@ impl Net {
             act = act_i;
         }
 
-        let mut logits = vec![0.0; n * 3];
-        mm(&a.last().unwrap(), &self.ws[layers_count - 1], &mut logits, n, self.h, 3);
-        add_bias(&mut logits, &self.bs[layers_count - 1]);
-        let (loss, dlogits) = softmax_xent(&logits, y.as_slice(), n, 3);
+        let last = layers_count - 1;
+        let (in_dim, out_dim) = self.dimensions[last];
+        let mut logits = vec![0.0; n * out_dim];
+        mm(&a.last().unwrap(), &self.ws[last], &mut logits, n, in_dim, out_dim);
+        add_bias(&mut logits, &self.bs[last]);
+        let (loss, dlogits) = softmax_xent(&logits, y.as_slice(), n, out_dim);
         (Cache { z, a, dlogits }, loss)
     }
 
@@ -67,57 +73,59 @@ impl Net {
         cache: &Cache,
         n: usize,
         input: &[F],
-    ) -> (Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>) {
-        let mut dw3 = vec![0.0; self.ws[2].len()];
-        let mut db3 = vec![0.0; 3];
-        mm_tn_acc(cache.a.last().unwrap(), &cache.dlogits, &mut dw3, n, self.h, 3);
+    ) -> (Vec<Vec<F>>, Vec<Vec<F>>) {
+        let layers_count: usize = self.ws.len();
+        let mut dws: Vec<Vec<F>> = vec![Vec::new(); layers_count];
+        let mut dbs: Vec<Vec<F>> = vec![Vec::new(); layers_count];
+
+        // output layer
+        let (in_dim, out_dim) = self.dimensions[layers_count - 1];
+        let mut dw = vec![0.0; self.ws[layers_count - 1].len()];
+        let mut db = vec![0.0; out_dim];
+        mm_tn_acc(cache.a.last().unwrap(), &cache.dlogits, &mut dw, n, in_dim, out_dim);
         for i in 0..n {
-            for j in 0..3 {
-                db3[j] += cache.dlogits[i * 3 + j];
+            for j in 0..out_dim {
+                db[j] += cache.dlogits[i * out_dim + j];
             }
         }
+        dws[layers_count - 1] = dw;
+        dbs[layers_count - 1] = db;
 
-
-        let mut da2 = vec![0.0; cache.a[1].len()];
-        mm_nt_acc(&cache.dlogits, &self.ws[2], &mut da2, n, 3, self.h);
-        let dz2: Vec<F> = da2
-            .iter()
-            .zip(cache.z[1].iter())
-            .map(|(da, z)| if *z > 0.0 { *da } else { 0.0 })
-            .collect();
-        let mut dw2 = vec![0.0; self.ws[1].len()];
-        mm_tn_acc(&cache.a[0], &dz2, &mut dw2, n, self.h, self.h);
-        let mut db2 = vec![0.0; self.bs[1].len()];
-        for i in 0..n {
-            for j in 0..self.bs[1].len() {
-                db2[j] += dz2[i * self.h + j];
+        // hidden layers, in reverse
+        let mut d_up = cache.dlogits.clone();
+        for i in (0..layers_count - 1).rev() {
+            let (in_dim, out_dim) = self.dimensions[i];
+            let next_out = self.dimensions[i + 1].1;
+            // da = d_up · ws[i+1]ᵀ, with d_up (n × next_out) and ws[i+1] (out_dim × next_out)
+            let mut da = vec![0.0; n * out_dim];
+            mm_nt_acc(&d_up, &self.ws[i + 1], &mut da, n, next_out, out_dim);
+            let dz: Vec<F> = da
+                .iter()
+                .zip(cache.z[i].iter())
+                .map(|(da, z)| if *z > 0.0 { *da } else { 0.0 })
+                .collect();
+            let layer_input = if i == 0 { input } else { &cache.a[i - 1] };
+            let mut dw = vec![0.0; self.ws[i].len()];
+            mm_tn_acc(layer_input, &dz, &mut dw, n, in_dim, out_dim);
+            let mut db = vec![0.0; out_dim];
+            for j in 0..n {
+                for k in 0..out_dim {
+                    db[k] += dz[j * out_dim + k];
+                }
             }
+            dws[i] = dw;
+            dbs[i] = db;
+            d_up = dz;
         }
-
-        let mut da1 = vec![0.0; cache.a[0].len()];
-        mm_nt_acc(&dz2, &self.ws[1], &mut da1, n, self.h, self.h);
-        let dz1: Vec<F> = da1
-            .iter()
-            .zip(cache.z[0].iter())
-            .map(|(da, z)| if *z > 0.0 { *da } else { 0.0 })
-            .collect();
-        let mut dw1 = vec![0.0; self.ws[0].len()];
-        mm_tn_acc(input, &dz1, &mut dw1, n, 2, self.h);
-        let mut db1 = vec![0.0; self.bs[0].len()];
-        for i in 0..n {
-            for j in 0..self.bs[0].len() {
-                db1[j] += dz1[i * self.h + j];
-            }
-        }
-        (dw3, db3, dw2, db2, dw1, db1)
+        (dws, dbs)
     }
 
-    pub fn learn(&mut self, dw1: Vec<F>, db1: Vec<F>, dw2: Vec<F>, db2: Vec<F>, dw3: Vec<F>, db3: Vec<F>) {
-        weighted_sub(&mut self.ws[0], &dw1, self.lr);
-        weighted_sub(&mut self.bs[0], &db1, self.lr);
-        weighted_sub(&mut self.ws[1], &dw2, self.lr);
-        weighted_sub(&mut self.bs[1], &db2, self.lr);
-        weighted_sub(&mut self.ws[2], &dw3, self.lr);
-        weighted_sub(&mut self.bs[2], &db3, self.lr);
+    pub fn learn(&mut self, dws: Vec<Vec<F>>, dbs: Vec<Vec<F>>) {
+        assert_eq!(self.ws.len(), dws.len());
+        assert_eq!(self.ws.len(), dbs.len());
+        for i in 0..self.ws.len() {
+            weighted_sub(&mut self.ws[i], &dws[i], self.lr);
+            weighted_sub(&mut self.bs[i], &dbs[i], self.lr);
+        }
     }
 }
