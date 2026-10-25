@@ -25,9 +25,20 @@ impl Net {
             let s = (2.0 / fan_in as F).sqrt();
             (0..len).map(|_| rng.normal() * s).collect()
         };
-        let dimensions = vec![(2, h), (h, h), (h, h / 2), (h / 2, 3)];
-        let ws = vec![he(2, 2 * h), he(h, h * h), he(h, h * (h / 2)), he(h / 2, (h / 2) * 3)];
-        let bs = vec![vec![0.0; h], vec![0.0; h], vec![0.0; h / 2], vec![0.0; 3]];
+        let dimensions = vec![
+            (2, h),
+            (h, h),
+            (h, h / 2),
+            (h / 2, h / 4),
+            (h / 4, h / 8),
+            (h / 8, 3),
+        ];
+        let mut ws = Vec::new();
+        let mut bs = Vec::new();
+        for &(in_dim, out_dim) in &dimensions {
+            ws.push(he(in_dim, in_dim * out_dim));
+            bs.push(vec![0.0; out_dim]);
+        }
         Net {
             h,
             lr: 0.1,

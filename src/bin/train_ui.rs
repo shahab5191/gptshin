@@ -2,6 +2,7 @@
 // A visualization dashboard for the Net in src/net.rs.
 use eframe::egui;
 use egui_plot::{Heatmap, Legend, Line, MarkerShape, Plot, PlotPoint, PlotPoints, Points};
+use rayon::prelude::*;
 use gptshin::net::Net;
 use gptshin::ops::*;
 use gptshin::rng::Rng;
@@ -84,13 +85,16 @@ fn predict(net: &Net, px: F, py: F) -> [F; 3] {
 fn compute_boundary(net: &Net, bounds: [f64; 4]) -> Vec<f64> {
     let [xmin, xmax, ymin, ymax] = bounds;
     let mut values = vec![0.0; GRID * GRID];
-    for iy in 0..GRID {
-        let py = ymin + (ymax - ymin) * (iy as f64 + 0.5) / GRID as f64;
-        for ix in 0..GRID {
-            let px = xmin + (xmax - xmin) * (ix as f64 + 0.5) / GRID as f64;
-            values[iy * GRID + ix] = argmax(&predict(net, px, py)) as f64;
-        }
-    }
+    values
+        .par_chunks_mut(GRID)
+        .enumerate()
+        .for_each(|(iy, row)| {
+            let py = ymin + (ymax - ymin) * (iy as f64 + 0.5) / GRID as f64;
+            for (ix, v) in row.iter_mut().enumerate() {
+                let px = xmin + (xmax - xmin) * (ix as f64 + 0.5) / GRID as f64;
+                *v = argmax(&predict(net, px, py)) as f64;
+            }
+        });
     values
 }
 
@@ -182,7 +186,6 @@ impl App {
         for _ in 0..steps {
             self.step_once();
         }
-        self.recompute_boundary();
     }
 
     fn reset(&mut self) {
@@ -270,9 +273,13 @@ impl eframe::App for App {
                 let train_label = if self.training { "Pause" } else { "Train" };
                 if ui.button(train_label).clicked() {
                     self.training = !self.training;
+                    if !self.training {
+                        self.recompute_boundary();
+                    }
                 }
                 if ui.button("Step").clicked() {
                     self.run_steps(self.train_steps);
+                    self.recompute_boundary();
                 }
                 if ui.button("Reset").clicked() {
                     self.reset();
