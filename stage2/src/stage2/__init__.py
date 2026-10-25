@@ -11,4 +11,5 @@ def main() -> None:
     # make tensor from spiral[0]
     x = torch.from_numpy(spiral[0]).float()
     y = torch.from_numpy(spiral[1])
+
     train(model, x, y, 1000, 0.1)
