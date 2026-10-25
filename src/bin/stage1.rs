@@ -18,7 +18,7 @@ fn main() {
         last_loss = loss;
         println!("loss: {}", loss);
         println!("delta_loss: {}", delta_loss);
-        let (dw1, db1, dw2, db2) = net.backward(&cache, n, &x);
-        net.learn(dw1, db1, dw2, db2);
+        let (dw3, db3, dw2, db2, dw1, db1) = net.backward(&cache, n, &x);
+        net.learn(dw1, db1, dw2, db2, dw3, db3);
     }
 }
