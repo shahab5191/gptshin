@@ -119,9 +119,10 @@ def vocab_size() -> int:
     return len(stoi)
 
 
-def make_pairs(data: Tensor, block_size: int) -> tuple[Tensor, Tensor]:
-    x = data.unfold(0, block_size, 1)[:-1]
-    y = data[block_size:]
+def make_pairs(data: Tensor, block_size: int, stride: int = 1) -> tuple[Tensor, Tensor]:
+    n_windows = (len(data) - block_size) // stride
+    x = data.unfold(0, block_size, stride)[:n_windows]
+    y = data[block_size : block_size + n_windows * stride : stride]
     return x, y
 
 
