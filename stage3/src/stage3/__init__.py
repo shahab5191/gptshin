@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 from stage3 import tokenizer_v2 as tok
@@ -8,8 +10,11 @@ BLOCK_SIZE = 32
 GEN_LEN = 300
 DATA_FILE = "text8"
 TOKEN_FILE = "tokens.txt"
+MODEL_FILE = "model.pt"
 MAX_CHARS = 5_000_000
 EMBED_DIM = 1024
+STEPS = 1_000_000
+LEARNING_RATE = 1e-3
 
 
 def _accuracy(model: Mlp, x: torch.Tensor, y: torch.Tensor, batch_size=4096) -> float:
@@ -18,8 +23,8 @@ def _accuracy(model: Mlp, x: torch.Tensor, y: torch.Tensor, batch_size=4096) -> 
     total = 0
     with torch.no_grad():
         for i in range(0, x.shape[0], batch_size):
-            xb = x[i: i + batch_size].to(model.device)
-            yb = y[i: i + batch_size].to(model.device)
+            xb = x[i : i + batch_size].to(model.device)
+            yb = y[i : i + batch_size].to(model.device)
             logits = model(xb)
             correct += (logits.argmax(dim=1) == yb).sum().item()
             total += yb.shape[0]
@@ -42,7 +47,13 @@ def main() -> None:
     HIDDEN = [EMBED_DIM] * 3
     model = Mlp(BLOCK_SIZE, vocab_size, EMBED_DIM, HIDDEN)
 
-    train(model, x, y, steps=100000, lr=1e-3)
+    if os.path.exists(MODEL_FILE):
+        model.load_state_dict(torch.load(MODEL_FILE, map_location="cpu"))
+        print(f"loaded model from {MODEL_FILE}")
+
+    train(model, x, y, steps=STEPS, lr=LEARNING_RATE)
+    torch.save(model.state_dict(), MODEL_FILE)
+    print(f"saved model to {MODEL_FILE}")
     device = model.device
 
     xv, yv = tok.make_pairs(val, BLOCK_SIZE)
@@ -50,7 +61,7 @@ def main() -> None:
     print(f"val accuracy: {val_acc:.4f}")
 
     start = torch.randint(0, len(val) - BLOCK_SIZE, (1,)).item()
-    context = val[start: start + BLOCK_SIZE].to(device)
+    context = val[start : start + BLOCK_SIZE].to(device)
     print(f"{context=}")
     generated = context.tolist()
     for _ in range(GEN_LEN):
