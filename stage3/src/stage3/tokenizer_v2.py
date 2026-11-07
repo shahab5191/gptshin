@@ -1,5 +1,7 @@
 import os
 
+from torch import Tensor, tensor
+
 SPACE_TOKEN = " "
 
 stoi: dict[str, int] = {}
@@ -115,6 +117,18 @@ def decode(ids: list[int]) -> str:
 
 def vocab_size() -> int:
     return len(stoi)
+
+
+def make_pairs(data: Tensor, block_size: int) -> tuple[Tensor, Tensor]:
+    x = data.unfold(0, block_size, 1)[:-1]
+    y = data[block_size:]
+    return x, y
+
+
+def tokenize(text: str) -> tuple[Tensor, Tensor]:
+    data = tensor(encode(text))
+    n = int(0.9 * len(data))
+    return data[:n], data[n:]
 
 
 if __name__ == "__main__":
