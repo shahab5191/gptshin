@@ -35,7 +35,11 @@ def main() -> None:
     print(f"{vocab_size=}")
     x, y = tok.make_pairs(trn, BLOCK_SIZE)
 
-    HIDDEN = [BLOCK_SIZE * vocab_size] * 5
+    HIDDEN = (
+        [int(BLOCK_SIZE * 2 / 3) * vocab_size]
+        + [BLOCK_SIZE * vocab_size] * 3
+        + [vocab_size * 2]
+    )
     model = Mlp(BLOCK_SIZE, vocab_size, HIDDEN)
 
     train(model, x, y, steps=100000, lr=1e-3)
@@ -47,6 +51,7 @@ def main() -> None:
 
     start = torch.randint(0, len(val) - BLOCK_SIZE, (1,)).item()
     context = val[start : start + BLOCK_SIZE].to(device)
+    print(f"{context=}")
     generated = context.tolist()
     for _ in range(GEN_LEN):
         logits = model(context.unsqueeze(0))
