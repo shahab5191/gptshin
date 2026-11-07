@@ -20,9 +20,8 @@ def main() -> None:
 
     model = Mlp(BLOCK_SIZE, vocab_size, [BLOCK_SIZE * vocab_size] * 2)
 
-    train(model, x, y, steps=100000, lr=0.1)
-
-    device = next(model.parameters()).device
+    train(model, x, y, steps=100000, lr=0.01)
+    device = model.device
 
     xv, yv = tok.make_pairs(val, BLOCK_SIZE)
     xv, yv = xv.to(device), yv.to(device)
