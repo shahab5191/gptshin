@@ -1,5 +1,4 @@
 import torch
-from torch.cuda import device
 
 from stage3 import spiral
 from stage3.model import Mlp
@@ -19,5 +18,7 @@ def main() -> None:
         device="cuda",
     )
     test = torch.Tensor([[0.0, 0.0]]).to("cuda")
-    model(test).argmax(dim=1)
-    print(x)
+    out = model(test)
+    prob = out.softmax(dim=1)
+    print(out)
+    print(prob)
