@@ -4,31 +4,45 @@ from stage3 import tokenizer as tok
 from stage3.model import Mlp
 from stage3.train import train
 
-BLOCK_SIZE = 8
+BLOCK_SIZE = 32
 GEN_LEN = 300
+DATA_FILE = "text8"
+MAX_CHARS = 5_000_000
+
+
+def _accuracy(model: Mlp, x: torch.Tensor, y: torch.Tensor, batch_size=4096) -> float:
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for i in range(0, x.shape[0], batch_size):
+            xb = x[i : i + batch_size].to(model.device)
+            yb = y[i : i + batch_size].to(model.device)
+            logits = model(xb)
+            correct += (logits.argmax(dim=1) == yb).sum().item()
+            total += yb.shape[0]
+    return correct / total
 
 
 def main() -> None:
-    with open("input.txt", "r") as f:
-        input = f.read()
-    if not input:
+    with open(DATA_FILE, "r", encoding="latin-1") as f:
+        text = f.read(MAX_CHARS)
+    if not text:
         raise Exception("Empty input file")
 
-    trn, val = tok.tokenize(input)
+    trn, val = tok.tokenize(text)
     vocab_size = tok.vocab_size()
+    print(f"{vocab_size=}")
     x, y = tok.make_pairs(trn, BLOCK_SIZE)
 
-    model = Mlp(BLOCK_SIZE, vocab_size, [BLOCK_SIZE * vocab_size] * 2)
+    HIDDEN = [BLOCK_SIZE * vocab_size] * 5
+    model = Mlp(BLOCK_SIZE, vocab_size, HIDDEN)
 
-    train(model, x, y, steps=100000, lr=0.01)
+    train(model, x, y, steps=100000, lr=1e-3)
     device = model.device
 
     xv, yv = tok.make_pairs(val, BLOCK_SIZE)
-    xv, yv = xv.to(device), yv.to(device)
-    model.eval()
-    with torch.no_grad():
-        logits = model(xv)
-        val_acc = (logits.argmax(dim=1) == yv).float().mean().item()
+    val_acc = _accuracy(model, xv, yv)
     print(f"val accuracy: {val_acc:.4f}")
 
     start = torch.randint(0, len(val) - BLOCK_SIZE, (1,)).item()
