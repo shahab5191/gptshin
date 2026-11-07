@@ -15,6 +15,7 @@ MAX_CHARS = 5_000_000
 EMBED_DIM = 1024
 STEPS = 1_000_000
 LEARNING_RATE = 1e-3
+SAVE_EVERY = 10_000
 
 
 def _accuracy(model: Mlp, x: torch.Tensor, y: torch.Tensor, batch_size=4096) -> float:
@@ -51,7 +52,15 @@ def main() -> None:
         model.load_state_dict(torch.load(MODEL_FILE, map_location="cpu"))
         print(f"loaded model from {MODEL_FILE}")
 
-    train(model, x, y, steps=STEPS, lr=LEARNING_RATE)
+    train(
+        model,
+        x,
+        y,
+        steps=STEPS,
+        lr=LEARNING_RATE,
+        save_path=MODEL_FILE,
+        save_every=SAVE_EVERY,
+    )
     torch.save(model.state_dict(), MODEL_FILE)
     print(f"saved model to {MODEL_FILE}")
     device = model.device

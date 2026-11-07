@@ -14,6 +14,8 @@ def train(
     batch_size=512,
     log_every=1000,
     weight_decay=0.01,
+    save_path: str | None = None,
+    save_every: int = 0,
 ) -> tuple[list[float], list[float]]:
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -48,6 +50,9 @@ def train(
         running_acc += acc_v
         loss.backward()
         optimizer.step()
+        if save_path and save_every and (i + 1) % save_every == 0:
+            torch.save(model.state_dict(), save_path)
+            print(f"Model Stored at {save_path}")
         if (i + 1) % log_every == 0:
             print(
                 f"step {i + 1:>7}/{steps}: "
