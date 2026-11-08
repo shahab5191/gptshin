@@ -1,19 +1,19 @@
 import os
+from pathlib import Path
 
+import numpy as np
 import torch
 
-from stage4 import tokenizer as tok
+from stage4.data import build_dataset
 from stage4.model import Mlp
 from stage4.train import evaluate, train
+from stage4.utils import save_gif
 
-BLOCK_SIZE = 512
-GEN_LEN = 300
-DATA_FILE = "text8"
-TOKEN_FILE = "tokens.txt"
-MODEL_FILE = "model.pt"
-MAX_CHARS = 100_000_000
+BLOCK_SIZE = 192
+GEN_LEN = 128
 EMBED_DIM = 512
-STEPS = 150_000
+STEPS = 200_000
+MODEL_FILE = "model.pt"
 LEARNING_RATE = 1e-3
 SAVE_EVERY = 10_000
 
@@ -34,21 +34,13 @@ def _load_compatible(model: Mlp, path: str) -> bool:
 
 
 def main() -> None:
-    with open(DATA_FILE, "r", encoding="latin-1") as f:
-        text = f.read(MAX_CHARS)
-    if not text:
-        raise Exception("Empty input file")
+    from stage4 import tokenizer as tok
 
-    tok.build_vocab(DATA_FILE, TOKEN_FILE)
-    vocab_size = tok.vocab_size()
-    print(f"{vocab_size=}")
+    codebook = tok.tokenize(Path("frames"))
+    x, y, xv, yv = build_dataset(Path("frames"), codebook, BLOCK_SIZE, 50, 0.9)
 
-    trn, val = tok.tokenize(text)
-    x, y = tok.make_pairs(trn, BLOCK_SIZE)
-    xv, yv = tok.make_pairs(val, BLOCK_SIZE, stride=BLOCK_SIZE)
-
-    HIDDEN = [EMBED_DIM] * 3
-    model = Mlp(BLOCK_SIZE, vocab_size, EMBED_DIM, HIDDEN)
+    HIDDEN = [256] * 3
+    model = Mlp(BLOCK_SIZE, tok.vocab_size(), EMBED_DIM, HIDDEN)
 
     _load_compatible(model, MODEL_FILE)
 
@@ -65,13 +57,13 @@ def main() -> None:
     )
     torch.save(model.state_dict(), MODEL_FILE)
     print(f"saved model to {MODEL_FILE}")
+
     device = model.device
 
     val_loss, val_ppl = evaluate(model, xv, yv)
     print(f"final val loss {val_loss:.4f} (ppl {val_ppl:.1f})")
 
-    start = torch.randint(0, len(val) - BLOCK_SIZE, (1,)).item()
-    context = val[start : start + BLOCK_SIZE].to(device)
+    context = xv[0].to(device).long()
     print(f"{context=}")
     generated = context.tolist()
     for _ in range(GEN_LEN):
@@ -80,4 +72,8 @@ def main() -> None:
         nxt = torch.multinomial(probs, 1).item()
         generated.append(nxt)
         context = torch.tensor(generated[-BLOCK_SIZE:], device=device)
-    print(tok.decode(generated))
+
+    gen_ids = generated[BLOCK_SIZE:]
+    patches = codebook[gen_ids]
+    frames = (patches.reshape(-1, 32, 32, 3) * 255).astype(np.uint8)
+    save_gif(frames, "gen.gif")

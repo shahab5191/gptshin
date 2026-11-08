@@ -1,9 +1,10 @@
 # Model checkpoints
 *.pt
 
-# Stage 4 source videos and extracted frames
+# Stage 4 source videos, extracted frames, and derived codebook
 stage4/videos/
 stage4/frames/
+stage4/codebook.npy
 
 # Rust / Cargo
 target/

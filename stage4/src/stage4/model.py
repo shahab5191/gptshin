@@ -8,12 +8,18 @@ class Mlp(nn.Module):
     layers: nn.ModuleList
 
     def __init__(
-        self, block_size: int, vocab_size: int, embed_dim: int, hidden: list[int]
+        self,
+        block_size: int,
+        vocab_size: int,
+        embed_dim: int,
+        hidden: list[int],
+        dropout=0.1,
     ):
         super().__init__()
         self.block_size = block_size
         self.vocab_size = vocab_size
         self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.dropout = nn.Dropout(dropout)
         dims = [block_size * embed_dim, *hidden, embed_dim]
         linears = [nn.Linear(dims[i], dims[i + 1]) for i in range(len(dims) - 1)]
         self.layers = nn.ModuleList(linears)
@@ -27,7 +33,7 @@ class Mlp(nn.Module):
         for i, layer in enumerate(self.layers):
             x = layer(x)
             if i < len(self.layers) - 1:
-                x = F.relu(x)
+                x = self.dropout(F.relu(x))
         logits = F.linear(x, self.embed.weight)
 
         return logits

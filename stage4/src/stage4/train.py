@@ -14,8 +14,8 @@ def evaluate(
     total_loss = 0.0
     total = 0
     for i in range(0, x.shape[0], batch_size):
-        xb = x[i : i + batch_size].to(model.device)
-        yb = y[i : i + batch_size].to(model.device)
+        xb = x[i : i + batch_size].to(model.device).long()
+        yb = y[i : i + batch_size].to(model.device).long()
         logits = model(xb)
         loss = nn.functional.cross_entropy(logits, yb, reduction="sum")
         total_loss += loss.item()
@@ -58,8 +58,8 @@ def train(
             ptr = 0
         idx = perm[ptr : ptr + batch_size]
         ptr += batch_size
-        xb = X[idx].to(device)
-        yb = y[idx].to(device)
+        xb = X[idx].to(device).long()
+        yb = y[idx].to(device).long()
         optimizer.zero_grad()
         yhat = model(xb)
         loss = nn.functional.cross_entropy(yhat, yb)
