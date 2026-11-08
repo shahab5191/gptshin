@@ -5,6 +5,7 @@ import torch
 
 from stage4.data import build_dataset
 from stage4.model import Mlp
+from stage4.predict import generate
 from stage4.train import evaluate, train
 from stage4.utils import save_gif
 from stage4.video_data import load_videos
@@ -21,6 +22,7 @@ FRAMES_DIR = Path("frames") / f"{SIZE}x{SIZE}_fps{FPS}"
 CODEBOOK_FILE = Path("frames") / "codebooks" / f"{SIZE}x{SIZE}_fps{FPS}.npy"
 MAX_CLIPS = None  # all clips
 EMBED_DIM = 64
+HIDDEN = [256] * 3
 STEPS = 20_000
 MODEL_FILE = "model.pt"
 LEARNING_RATE = 3e-4
@@ -52,7 +54,6 @@ def main() -> None:
         FRAMES_DIR, codebook, BLOCK_SIZE, TOKENS_PER_FRAME, MAX_CLIPS, 0.9
     )
 
-    HIDDEN = [256] * 3
     model = Mlp(BLOCK_SIZE, tok.vocab_size(), EMBED_DIM, HIDDEN)
 
     _load_compatible(model, MODEL_FILE)
@@ -73,23 +74,9 @@ def main() -> None:
     )
     print(f"loaded best model from {MODEL_FILE}")
 
-    device = model.device
-
     val_loss, val_ppl = evaluate(model, xv, yv)
     print(f"final val loss {val_loss:.4f} (ppl {val_ppl:.1f})")
 
-    model.eval()  # evaluate() leaves the model in train mode (dropout on)
-    context = xv[0].to(device).long()
-    print(f"{context=}")
-    generated = context.tolist()
-    with torch.no_grad():
-        for _ in range(GEN_LEN):
-            logits = model(context.unsqueeze(0))
-            probs = (logits / TEMPERATURE).softmax(dim=1)
-            nxt = torch.multinomial(probs, 1).item()
-            generated.append(nxt)
-            context = torch.tensor(generated[-BLOCK_SIZE:], device=device)
-
-    gen_ids = generated[BLOCK_SIZE:]
+    gen_ids = generate(model, xv[0], GEN_LEN, TEMPERATURE)
     frames = tok.decode_frames(gen_ids, codebook, SIZE, SIZE)
     save_gif(frames, "gen.gif")

@@ -3,6 +3,7 @@ import math
 import torch
 from torch import Tensor, nn, optim
 
+from stage4.data import Windows
 from stage4.model import Mlp
 from stage4.utils import KeyListener
 
@@ -28,7 +29,7 @@ def evaluate(
 
 def train(
     model: Mlp,
-    X: Tensor,
+    X: Tensor | Windows,
     y: Tensor,
     val_x: Tensor | None = None,
     val_y: Tensor | None = None,
@@ -61,7 +62,7 @@ def train(
     steps_since_log = 0
 
     best_val = math.inf
-    if val_x is not None:
+    if val_x is not None and val_y is not None:
         best_val, best_ppl = evaluate(model, val_x, val_y)
         print(f"starting val loss {best_val:.4f} (ppl {best_ppl:.1f})")
         if save_path:  # so save_path always exists and holds the best-so-far
@@ -69,6 +70,7 @@ def train(
 
     def validate() -> str:
         nonlocal best_val
+        assert val_x is not None and val_y is not None
         val_loss, val_ppl = evaluate(model, val_x, val_y)
         val_losses.append(val_loss)
         line = f"   val loss {val_loss:.4f} (ppl {val_ppl:.1f})"

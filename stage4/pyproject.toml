@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 stage4 = "stage4:main"
+stage4-animate = "stage4.animate:main"
 
 [build-system]
 requires = ["uv_build>=0.12.24,<0.13.0"]
