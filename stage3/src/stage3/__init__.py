@@ -6,16 +6,31 @@ from stage3 import tokenizer_v2 as tok
 from stage3.model import Mlp
 from stage3.train import evaluate, train
 
-BLOCK_SIZE = 32
+BLOCK_SIZE = 128
 GEN_LEN = 300
 DATA_FILE = "text8"
 TOKEN_FILE = "tokens.txt"
 MODEL_FILE = "model.pt"
-MAX_CHARS = 5_000_000
+MAX_CHARS = 100_000_000
 EMBED_DIM = 512
-STEPS = 10_000
+STEPS = 150_000
 LEARNING_RATE = 1e-3
 SAVE_EVERY = 10_000
+
+
+def _load_compatible(model: Mlp, path: str) -> bool:
+    if not os.path.exists(path):
+        return False
+    state = torch.load(path, map_location="cpu", weights_only=True)
+    current = model.state_dict()
+    if set(current) != set(state) or any(
+        current[k].shape != state[k].shape for k in current
+    ):
+        print("checkpoint architecture changed - starting fresh")
+        return False
+    model.load_state_dict(state)
+    print(f"loaded model from {path}")
+    return True
 
 
 def main() -> None:
@@ -35,9 +50,7 @@ def main() -> None:
     HIDDEN = [EMBED_DIM] * 3
     model = Mlp(BLOCK_SIZE, vocab_size, EMBED_DIM, HIDDEN)
 
-    if os.path.exists(MODEL_FILE):
-        model.load_state_dict(torch.load(MODEL_FILE, map_location="cpu"))
-        print(f"loaded model from {MODEL_FILE}")
+    _load_compatible(model, MODEL_FILE)
 
     train(
         model,

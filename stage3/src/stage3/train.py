@@ -43,14 +43,9 @@ def train(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
-    X = X.to(device)
-    y = y.to(device)
-    if val_x is not None:
-        val_x = val_x.to(device)
-        val_y = val_y.to(device)
 
     n = X.shape[0]
-    perm = torch.randperm(n, device=device)
+    perm = torch.randperm(n)
     ptr = 0
 
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -59,11 +54,12 @@ def train(
     running_loss = 0.0
     for i in range(steps):
         if ptr + batch_size > n:
-            perm = torch.randperm(n, device=device)
+            perm = torch.randperm(n)
             ptr = 0
         idx = perm[ptr : ptr + batch_size]
         ptr += batch_size
-        xb, yb = X[idx], y[idx]
+        xb = X[idx].to(device)
+        yb = y[idx].to(device)
         optimizer.zero_grad()
         yhat = model(xb)
         loss = nn.functional.cross_entropy(yhat, yb)
