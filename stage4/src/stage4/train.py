@@ -4,6 +4,7 @@ import torch
 from torch import Tensor, nn, optim
 
 from stage4.model import Mlp
+from stage4.utils import KeyListener
 
 
 @torch.no_grad()
@@ -38,8 +39,13 @@ def train(
     log_every=1000,
     weight_decay=0.01,
     save_path: str | None = None,
-    save_every: int = 0,
 ) -> tuple[list[float], list[float]]:
+    """Train; press "q" in the terminal to stop early.
+
+    With val data and save_path, the checkpoint is written only when val loss
+    improves, so save_path always holds the best model seen so far (including
+    the starting weights, so resuming never overwrites a better checkpoint).
+    """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
@@ -52,36 +58,63 @@ def train(
     losses: list[float] = []
     val_losses: list[float] = []
     running_loss = 0.0
-    for i in range(steps):
-        if ptr + batch_size > n:
-            perm = torch.randperm(n)
-            ptr = 0
-        idx = perm[ptr : ptr + batch_size]
-        ptr += batch_size
-        xb = X[idx].to(device).long()
-        yb = y[idx].to(device).long()
-        optimizer.zero_grad()
-        yhat = model(xb)
-        loss = nn.functional.cross_entropy(yhat, yb)
-        loss_v = loss.item()
-        losses.append(loss_v)
-        running_loss += loss_v
-        loss.backward()
-        optimizer.step()
-        if save_path and save_every and (i + 1) % save_every == 0:
-            torch.save(model.state_dict(), save_path)
-            print(f"Model Stored at {save_path}")
-        if (i + 1) % log_every == 0:
-            mean_loss = running_loss / log_every
-            line = (
-                f"step {i + 1:>7}/{steps}: "
-                f"train loss {mean_loss:.4f} (ppl {math.exp(mean_loss):.1f})"
-            )
-            if val_x is not None:
-                val_loss, val_ppl = evaluate(model, val_x, val_y)
-                val_losses.append(val_loss)
-                line += f"   val loss {val_loss:.4f} (ppl {val_ppl:.1f})"
-            print(line)
-            running_loss = 0.0
+    steps_since_log = 0
 
+    best_val = math.inf
+    if val_x is not None:
+        best_val, best_ppl = evaluate(model, val_x, val_y)
+        print(f"starting val loss {best_val:.4f} (ppl {best_ppl:.1f})")
+        if save_path:  # so save_path always exists and holds the best-so-far
+            torch.save(model.state_dict(), save_path)
+
+    def validate() -> str:
+        nonlocal best_val
+        val_loss, val_ppl = evaluate(model, val_x, val_y)
+        val_losses.append(val_loss)
+        line = f"   val loss {val_loss:.4f} (ppl {val_ppl:.1f})"
+        if val_loss < best_val:
+            best_val = val_loss
+            if save_path:
+                torch.save(model.state_dict(), save_path)
+                line += f"  * best, saved to {save_path}"
+        return line
+
+    print('training - press "q" to stop early')
+    with KeyListener() as keys:
+        for i in range(steps):
+            if ptr + batch_size > n:
+                perm = torch.randperm(n)
+                ptr = 0
+            idx = perm[ptr : ptr + batch_size]
+            ptr += batch_size
+            xb = X[idx].to(device).long()
+            yb = y[idx].to(device).long()
+            optimizer.zero_grad()
+            yhat = model(xb)
+            loss = nn.functional.cross_entropy(yhat, yb)
+            loss_v = loss.item()
+            losses.append(loss_v)
+            running_loss += loss_v
+            steps_since_log += 1
+            loss.backward()
+            optimizer.step()
+
+            stop = keys.pressed("q")
+            if (i + 1) % log_every == 0 or stop:
+                mean_loss = running_loss / steps_since_log
+                line = (
+                    f"step {i + 1:>7}/{steps}: "
+                    f"train loss {mean_loss:.4f} (ppl {math.exp(mean_loss):.1f})"
+                )
+                if val_x is not None:
+                    line += validate()
+                print(line)
+                running_loss = 0.0
+                steps_since_log = 0
+            if stop:
+                print(f"stopped by user at step {i + 1}")
+                break
+
+    if val_x is not None:
+        print(f"best val loss {best_val:.4f} (ppl {math.exp(best_val):.1f})")
     return (losses, val_losses)

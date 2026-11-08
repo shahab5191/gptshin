@@ -24,7 +24,6 @@ EMBED_DIM = 64
 STEPS = 20_000
 MODEL_FILE = "model.pt"
 LEARNING_RATE = 3e-4
-SAVE_EVERY = 10_000
 
 
 def _load_compatible(model: Mlp, path: str) -> bool:
@@ -67,10 +66,12 @@ def main() -> None:
         steps=STEPS,
         lr=LEARNING_RATE,
         save_path=MODEL_FILE,
-        save_every=SAVE_EVERY,
     )
-    torch.save(model.state_dict(), MODEL_FILE)
-    print(f"saved model to {MODEL_FILE}")
+    # train() saved the best-val checkpoint; use it rather than the last weights
+    model.load_state_dict(
+        torch.load(MODEL_FILE, map_location=model.device, weights_only=True)
+    )
+    print(f"loaded best model from {MODEL_FILE}")
 
     device = model.device
 
