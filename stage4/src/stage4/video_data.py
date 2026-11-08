@@ -9,13 +9,17 @@ VIDEO_EXTS = (".mp4", ".mkv", ".webm", ".avi", ".mov")
 
 
 def _cache_path(
-    video_path: str, size: tuple[int, int], grayscale: bool, fps: float | None
+    video_path: str,
+    size: tuple[int, int],
+    grayscale: bool,
+    fps: float | None,
+    frames_dir: str,
 ) -> str:
     stem = os.path.splitext(os.path.basename(video_path))[0]
     w, h = size
     mode = "gray" if grayscale else "rgb"
     suffix = f"_fps{fps:g}" if fps else ""
-    return os.path.join(FRAMES_DIR, f"{stem}_{w}x{h}_{mode}{suffix}.npy")
+    return os.path.join(frames_dir, f"{stem}_{w}x{h}_{mode}{suffix}.npy")
 
 
 def _extract(
@@ -46,14 +50,15 @@ def load_video(
     size: tuple[int, int] = (32, 32),
     grayscale: bool = False,
     fps: float | None = None,
+    frames_dir: str = FRAMES_DIR,
 ) -> np.ndarray:
-    cache = _cache_path(video_path, size, grayscale, fps)
+    cache = _cache_path(video_path, size, grayscale, fps, frames_dir)
     if os.path.exists(cache):
         return np.load(cache)
 
     print(f"extracting {video_path} -> {cache}")
     frames = _extract(video_path, size, grayscale, fps)
-    os.makedirs(FRAMES_DIR, exist_ok=True)
+    os.makedirs(frames_dir, exist_ok=True)
     tmp = cache + ".tmp"
     with open(tmp, "wb") as f:
         np.save(f, frames)
@@ -66,12 +71,14 @@ def load_videos(
     size: tuple[int, int] = (32, 32),
     grayscale: bool = False,
     fps: float | None = None,
+    frames_dir: str = FRAMES_DIR,
 ) -> list[np.ndarray]:
     names = sorted(n for n in os.listdir(video_dir) if n.lower().endswith(VIDEO_EXTS))
     if not names:
         raise FileNotFoundError(f"no videos found in {video_dir}/")
     return [
-        load_video(os.path.join(video_dir, n), size, grayscale, fps) for n in names
+        load_video(os.path.join(video_dir, n), size, grayscale, fps, frames_dir)
+        for n in names
     ]
 
 

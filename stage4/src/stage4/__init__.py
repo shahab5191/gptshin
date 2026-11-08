@@ -1,20 +1,29 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import torch
 
 from stage4.data import build_dataset
 from stage4.model import Mlp
 from stage4.train import evaluate, train
 from stage4.utils import save_gif
+from stage4.video_data import load_videos
 
-BLOCK_SIZE = 192
-GEN_LEN = 128
-EMBED_DIM = 512
-STEPS = 200_000
+SIZE = 64  # frames are SIZE x SIZE pixels
+FPS = 5
+TOKENS_PER_FRAME = (SIZE // 4) ** 2  # 4x4-pixel patches -> 256 tokens at 64x64
+CONTEXT_FRAMES = 3
+BLOCK_SIZE = TOKENS_PER_FRAME * CONTEXT_FRAMES
+GEN_FRAMES = 30
+GEN_LEN = TOKENS_PER_FRAME * GEN_FRAMES
+TEMPERATURE = 0.8
+FRAMES_DIR = Path("frames") / f"{SIZE}x{SIZE}_fps{FPS}"
+CODEBOOK_FILE = Path("frames") / "codebooks" / f"{SIZE}x{SIZE}_fps{FPS}.npy"
+MAX_CLIPS = None  # all clips
+EMBED_DIM = 64
+STEPS = 20_000
 MODEL_FILE = "model.pt"
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 3e-4
 SAVE_EVERY = 10_000
 
 
@@ -36,8 +45,13 @@ def _load_compatible(model: Mlp, path: str) -> bool:
 def main() -> None:
     from stage4 import tokenizer as tok
 
-    codebook = tok.tokenize(Path("frames"))
-    x, y, xv, yv = build_dataset(Path("frames"), codebook, BLOCK_SIZE, 50, 0.9)
+    # extracts once, then cached
+    load_videos(size=(SIZE, SIZE), fps=FPS, frames_dir=str(FRAMES_DIR))
+    # codebook sampled from patches of all clips (k-means on a 1M-patch subset)
+    codebook = tok.tokenize(FRAMES_DIR, codebook_file=CODEBOOK_FILE, max_clips=None)
+    x, y, xv, yv = build_dataset(
+        FRAMES_DIR, codebook, BLOCK_SIZE, TOKENS_PER_FRAME, MAX_CLIPS, 0.9
+    )
 
     HIDDEN = [256] * 3
     model = Mlp(BLOCK_SIZE, tok.vocab_size(), EMBED_DIM, HIDDEN)
@@ -63,17 +77,18 @@ def main() -> None:
     val_loss, val_ppl = evaluate(model, xv, yv)
     print(f"final val loss {val_loss:.4f} (ppl {val_ppl:.1f})")
 
+    model.eval()  # evaluate() leaves the model in train mode (dropout on)
     context = xv[0].to(device).long()
     print(f"{context=}")
     generated = context.tolist()
-    for _ in range(GEN_LEN):
-        logits = model(context.unsqueeze(0))
-        probs = logits.softmax(dim=1)
-        nxt = torch.multinomial(probs, 1).item()
-        generated.append(nxt)
-        context = torch.tensor(generated[-BLOCK_SIZE:], device=device)
+    with torch.no_grad():
+        for _ in range(GEN_LEN):
+            logits = model(context.unsqueeze(0))
+            probs = (logits / TEMPERATURE).softmax(dim=1)
+            nxt = torch.multinomial(probs, 1).item()
+            generated.append(nxt)
+            context = torch.tensor(generated[-BLOCK_SIZE:], device=device)
 
     gen_ids = generated[BLOCK_SIZE:]
-    patches = codebook[gen_ids]
-    frames = (patches.reshape(-1, 32, 32, 3) * 255).astype(np.uint8)
+    frames = tok.decode_frames(gen_ids, codebook, SIZE, SIZE)
     save_gif(frames, "gen.gif")

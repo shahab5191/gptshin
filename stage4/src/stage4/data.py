@@ -15,15 +15,42 @@ def make_pairs(data: Tensor, block_size: int, stride: int = 1) -> tuple[Tensor, 
     return x, y
 
 
+class Windows:
+    """Training windows cut out of one token stream on demand.
+
+    Behaves like the (N, block_size) tensor make_pairs would return (len, .shape,
+    X[idx], X[a:b]), but only stores the tokens once plus one start index per
+    window. Materializing every stride-1 window would copy each token
+    block_size times.
+    """
+
+    def __init__(self, tokens: Tensor, starts: Tensor, block_size: int):
+        self.tokens = tokens
+        self.starts = starts
+        self.offsets = torch.arange(block_size)
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (len(self.starts), len(self.offsets))
+
+    def __len__(self) -> int:
+        return len(self.starts)
+
+    def __getitem__(self, idx) -> Tensor:
+        return self.tokens[self.starts[idx].unsqueeze(-1) + self.offsets]
+
+
 def build_dataset(
     frames_dir: Path,
     centroids: NDArray,
     block_size: int,
+    tokens_per_frame: int,
     max_clips: int | None = None,
     train_frac: float = 0.9,
-) -> tuple[Tensor, Tensor, Tensor, Tensor]:
-    xs: list[Tensor] = []
-    ys: list[Tensor] = []
+) -> tuple[Windows, Tensor, Tensor, Tensor]:
+    streams: list[Tensor] = []
+    starts: list[Tensor] = []
+    offset = 0
     xvs: list[Tensor] = []
     yvs: list[Tensor] = []
 
@@ -34,19 +61,26 @@ def build_dataset(
     print(f"building dataset: encoding {len(npy_files)} clips")
     for i, fn in enumerate(npy_files):
         clip = np.load(fn)
-        codes = tokenizer.encode(clip, centroids)  # (T*64,) int16
-        n = int(train_frac * len(codes))
+        codes = tokenizer.encode(clip, centroids)  # (T * tokens_per_frame,) int16
+        # split on a frame boundary so val windows start at the top-left patch
+        n = int(train_frac * len(codes)) // tokens_per_frame * tokens_per_frame
         trn = torch.from_numpy(codes[:n])
         val = torch.from_numpy(codes[n:])
         if len(trn) <= block_size or len(val) <= block_size:
             print(f"  [{i + 1}/{len(npy_files)}] {fn.name}: skipped (too short)")
             continue
-        x, y = make_pairs(trn, block_size, stride=1)
+        # every stride-1 window inside this clip (never crossing into the next clip)
+        streams.append(trn)
+        starts.append(torch.arange(len(trn) - block_size) + offset)
+        offset += len(trn)
         xv, yv = make_pairs(val, block_size, stride=block_size)
-        xs.append(x)
-        ys.append(y)
         xvs.append(xv)
         yvs.append(yv)
-        print(f"  [{i + 1}/{len(npy_files)}] {fn.name}: {len(codes)} codes")
+        if (i + 1) % 50 == 0 or i + 1 == len(npy_files):
+            print(f"  [{i + 1}/{len(npy_files)}] clips encoded")
 
-    return torch.cat(xs), torch.cat(ys), torch.cat(xvs), torch.cat(yvs)
+    tokens = torch.cat(streams)
+    start_idx = torch.cat(starts)
+    x = Windows(tokens, start_idx, block_size)
+    y = tokens[start_idx + block_size]
+    return x, y, torch.cat(xvs), torch.cat(yvs)

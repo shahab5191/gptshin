@@ -26,6 +26,9 @@ class Mlp(nn.Module):
         for layer in linears:
             nn.init.kaiming_normal_(layer.weight, mode="fan_in", nonlinearity="relu")
             nn.init.zeros_(layer.bias)
+        # embed is tied to the output layer: small init keeps initial logits ~0,
+        # otherwise softmax saturates (loss >> ln(vocab)) and the ReLUs die
+        nn.init.normal_(self.embed.weight, mean=0.0, std=0.02)
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.embed(x)

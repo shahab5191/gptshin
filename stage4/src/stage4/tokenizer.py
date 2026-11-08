@@ -5,14 +5,41 @@ from numpy._typing import NDArray
 
 CODEBOOK_FILE = "codebook.npy"
 VOCAB_SIZE = 512
+PATCH = 4  # patch side in pixels
+PATCH_DIM = PATCH * PATCH * 3  # 48 values per RGB patch
+
+
+def tokens_per_frame(h: int, w: int) -> int:
+    return (h // PATCH) * (w // PATCH)
 
 
 def _extract_patches(clip: NDArray) -> NDArray:
+    # (T, H, W, 3) -> (T * gh * gw, 48), patches in row-major order within a frame
+    t, h, w, c = clip.shape
+    gh, gw = h // PATCH, w // PATCH
     return (
-        clip.reshape(clip.shape[0], 8, 4, 8, 4, 3)
+        clip.reshape(t, gh, PATCH, gw, PATCH, c)
         .transpose(0, 1, 3, 2, 4, 5)
-        .reshape(-1, 48)
+        .reshape(-1, PATCH_DIM)
     )
+
+
+def decode_frames(ids, centroids: NDArray, h: int, w: int) -> NDArray:
+    """Inverse of encode: token ids (T * gh * gw,) -> uint8 frames (T, H, W, 3)."""
+    gh, gw = h // PATCH, w // PATCH
+    patches = centroids[np.asarray(ids)]
+    frames = (
+        patches.reshape(-1, gh, gw, PATCH, PATCH, 3)
+        .transpose(0, 1, 3, 2, 4, 5)
+        .reshape(-1, h, w, 3)
+    )
+    return (frames * 255).clip(0, 255).astype(np.uint8)
+
+
+def _nearest(p: NDArray, centroids: NDArray) -> NDArray:
+    # argmin_k ||p - c_k||^2 = argmin_k (||c_k||^2 - 2 p.c_k); ||p||^2 is constant per row
+    d = (centroids**2).sum(1)[None, :] - 2.0 * (p @ centroids.T)
+    return d.argmin(1)
 
 
 def list_patches(frames_dir: Path, max_clips: int | None = None) -> NDArray:
@@ -40,10 +67,8 @@ def extract_codebook(patches: NDArray, iters=20, chunk=8192):
     for i in range(iters):
         labels = np.empty(n, dtype=np.int32)
         for s in range(0, n, chunk):
-            p = patches[s : s + chunk]
-            d = ((p[:, None, :] - centroids[None, :, :]) ** 2).sum(-1)
-            labels[s : s + chunk] = d.argmin(1)
-        sums = np.zeros((k, 48), dtype=np.float64)
+            labels[s : s + chunk] = _nearest(patches[s : s + chunk], centroids)
+        sums = np.zeros((k, PATCH_DIM), dtype=np.float64)
         counts = np.zeros(k, dtype=np.int64)
         np.add.at(sums, labels, patches)
         np.add.at(counts, labels, 1)
@@ -67,11 +92,13 @@ def get_codebook(
     patches: NDArray,
     iters: int = 20,
     chunk: int = 8192,
+    path: Path | str = CODEBOOK_FILE,
 ) -> NDArray:
     centroids = extract_codebook(patches, iters, chunk)
-    np.save(CODEBOOK_FILE, centroids)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    np.save(path, centroids)
     print(
-        f"saved codebook to {CODEBOOK_FILE} "
+        f"saved codebook to {path} "
         f"({centroids.shape[0]}x{centroids.shape[1]}, {centroids.dtype})"
     )
     return centroids
@@ -86,19 +113,26 @@ def encode(clip: NDArray, centroids: NDArray, chunk: int = 8192) -> NDArray:
     n = patches.shape[0]
     ids = np.empty(n, dtype=np.int16)
     for s in range(0, n, chunk):
-        p = patches[s : s + chunk]
-        d = ((p[:, None, :] - centroids[None, :, :]) ** 2).sum(-1)
-        ids[s : s + chunk] = d.argmin(1)
+        ids[s : s + chunk] = _nearest(patches[s : s + chunk], centroids)
     return ids
 
 
-def tokenize(frame_dir: Path, rebuild: bool = False) -> NDArray:
-    if Path(CODEBOOK_FILE).exists() and not rebuild:
-        print(f"loading codebook from {CODEBOOK_FILE}")
-        return np.load(CODEBOOK_FILE)
-    print(f"codebook {CODEBOOK_FILE} not found - building")
-    patches = list_patches(frame_dir, 50)
-    return get_codebook(patches)
+def tokenize(
+    frame_dir: Path,
+    rebuild: bool = False,
+    codebook_file: Path | str = CODEBOOK_FILE,
+    max_clips: int | None = 50,
+    max_patches: int = 1_000_000,
+) -> NDArray:
+    if Path(codebook_file).exists() and not rebuild:
+        print(f"loading codebook from {codebook_file}")
+        return np.load(codebook_file)
+    print(f"codebook {codebook_file} not found - building")
+    patches = list_patches(frame_dir, max_clips)
+    if len(patches) > max_patches:  # random subset keeps k-means fast
+        rng = np.random.default_rng(0)
+        patches = patches[rng.choice(len(patches), max_patches, replace=False)]
+    return get_codebook(patches, path=codebook_file)
 
 
 def vocab_size() -> int:
