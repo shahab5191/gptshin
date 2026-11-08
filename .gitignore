@@ -1,6 +1,10 @@
 # Model checkpoints
 *.pt
 
+# Stage 4 source videos and extracted frames
+stage4/videos/
+stage4/frames/
+
 # Rust / Cargo
 target/
 debug/
