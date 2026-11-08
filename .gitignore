@@ -1,3 +1,6 @@
+# Model checkpoints
+*.pt
+
 # Rust / Cargo
 target/
 debug/

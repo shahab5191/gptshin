@@ -6,7 +6,7 @@ from stage3 import tokenizer_v2 as tok
 from stage3.model import Mlp
 from stage3.train import evaluate, train
 
-BLOCK_SIZE = 128
+BLOCK_SIZE = 512
 GEN_LEN = 300
 DATA_FILE = "text8"
 TOKEN_FILE = "tokens.txt"
