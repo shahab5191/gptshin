@@ -56,10 +56,9 @@ def list_patches(frames_dir: Path, max_clips: int | None = None) -> NDArray:
     return np.concatenate(all_patches, axis=0)
 
 
-def extract_codebook(patches: NDArray, iters=20, chunk=8192):
+def extract_codebook(patches: NDArray, iters=20, chunk=8192, k: int = VOCAB_SIZE):
     rng = np.random.default_rng(100)
     n = patches.shape[0]
-    k = VOCAB_SIZE
     patches = patches.astype(np.float32) / 255.0
     centroids = patches[rng.choice(n, k, replace=False)]
 
@@ -93,8 +92,9 @@ def get_codebook(
     iters: int = 20,
     chunk: int = 8192,
     path: Path | str = CODEBOOK_FILE,
+    k: int = VOCAB_SIZE,
 ) -> NDArray:
-    centroids = extract_codebook(patches, iters, chunk)
+    centroids = extract_codebook(patches, iters, chunk, k)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     np.save(path, centroids)
     print(

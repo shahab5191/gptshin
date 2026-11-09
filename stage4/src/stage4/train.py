@@ -3,22 +3,25 @@ import math
 import torch
 from torch import Tensor, nn, optim
 
-from stage4.chained import Chained
 from stage4.data import Windows
+from stage4.models import Model
 from stage4.utils import KeyListener
 
 
 @torch.no_grad()
 def evaluate(
-    model: Chained, x: Tensor, y: Tensor, batch_size: int = 4096
+    model: Model, x: Tensor, y: Tensor, phase: Tensor, batch_size: int = 1024
 ) -> tuple[float, float]:
+    # batch_size bounds GPU memory: activations are batch * block_size * embed_dim
+    # floats (1024 * 3840 * 64 * 4 bytes = 1 GB per tensor at 15 context frames)
     model.eval()
     total_loss = 0.0
     total = 0
     for i in range(0, x.shape[0], batch_size):
         xb = x[i : i + batch_size].to(model.device).long()
         yb = y[i : i + batch_size].to(model.device).long()
-        logits = model(xb)
+        pb = phase[i : i + batch_size].to(model.device).long()
+        logits = model(xb, pb)
         loss = nn.functional.cross_entropy(logits, yb, reduction="sum")
         total_loss += loss.item()
         total += yb.shape[0]
@@ -28,11 +31,13 @@ def evaluate(
 
 
 def train(
-    model: Chained,
+    model: Model,
     X: Tensor | Windows,
     y: Tensor,
+    phase: Tensor,
     val_x: Tensor | None = None,
     val_y: Tensor | None = None,
+    val_phase: Tensor | None = None,
     steps=1000,
     lr=0.1,
     device: str | None = None,
@@ -44,6 +49,8 @@ def train(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
+    # TF32 matmuls: ~2x faster on recent NVIDIA GPUs, precision loss is negligible here
+    torch.set_float32_matmul_precision("high")
 
     n = X.shape[0]
     perm = torch.randperm(n)
@@ -56,16 +63,16 @@ def train(
     steps_since_log = 0
 
     best_val = math.inf
-    if val_x is not None and val_y is not None:
-        best_val, best_ppl = evaluate(model, val_x, val_y)
+    if val_x is not None and val_y is not None and val_phase is not None:
+        best_val, best_ppl = evaluate(model, val_x, val_y, val_phase)
         print(f"starting val loss {best_val:.4f} (ppl {best_ppl:.1f})")
         if save_path:  # so save_path always exists and holds the best-so-far
             torch.save(model.state_dict(), save_path)
 
     def validate() -> str:
         nonlocal best_val
-        assert val_x is not None and val_y is not None
-        val_loss, val_ppl = evaluate(model, val_x, val_y)
+        assert val_x is not None and val_y is not None and val_phase is not None
+        val_loss, val_ppl = evaluate(model, val_x, val_y, val_phase)
         val_losses.append(val_loss)
         line = f"   val loss {val_loss:.4f} (ppl {val_ppl:.1f})"
         if val_loss < best_val:
@@ -85,14 +92,18 @@ def train(
             ptr += batch_size
             xb = X[idx].to(device).long()
             yb = y[idx].to(device).long()
+            pb = phase[idx].to(device).long()
             optimizer.zero_grad()
-            yhat = model(xb)
+            yhat = model(xb, pb)
             loss = nn.functional.cross_entropy(yhat, yb)
             loss_v = loss.item()
             losses.append(loss_v)
             running_loss += loss_v
             steps_since_log += 1
             loss.backward()
+            # caps rare huge gradients (RNNs can produce them) so one bad batch
+            # can't throw the weights far off
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
             stop = keys.pressed("q")

@@ -17,10 +17,8 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from stage4 import (
-    BLOCK_SIZE,
     CODEBOOK_FILE,
     CONTEXT_FRAMES,
-    EMBED_DIM,
     FPS,
     GEN_FRAMES,
     HIDDEN,
@@ -28,9 +26,10 @@ from stage4 import (
     SIZE,
     TEMPERATURE,
     TOKENS_PER_FRAME,
+    build_model,
 )
 from stage4 import tokenizer as tok
-from stage4.chained import Chained
+from stage4.models import Model
 from stage4.predict import generate
 from stage4.utils import save_gif
 
@@ -46,23 +45,15 @@ def load_picture(path: Path, size: int = SIZE) -> NDArray:
     return np.asarray(img.crop((left, top, left + size, top + size)))
 
 
-def load_model(path: str | Path, device: str) -> Chained:
-    # must match the model built in stage4.main()
-    model = Chained(
-        BLOCK_SIZE,
-        tok.vocab_size(),
-        EMBED_DIM,
-        TOKENS_PER_FRAME,
-        HIDDEN,
-        tok.vocab_size(),
-    )
+def load_model(path: str | Path, vocab_size: int, device: str) -> Model:
+    model = build_model(vocab_size)  # same model stage4.main() trains
     state = torch.load(path, map_location="cpu", weights_only=True)
     try:
         model.load_state_dict(state)
     except RuntimeError as e:
         raise SystemExit(
             f"{path} doesn't match the current config in stage4/__init__.py "
-            f"(SIZE={SIZE}, EMBED_DIM={EMBED_DIM}, HIDDEN={HIDDEN}). "
+            f"(SIZE={SIZE}, HIDDEN={HIDDEN}, vocab={vocab_size}). "
             f"Was it trained with different settings?\n{e}"
         ) from None
     return model.to(device)
@@ -70,7 +61,7 @@ def load_model(path: str | Path, device: str) -> Chained:
 
 def animate(
     picture: NDArray,
-    model: Chained,
+    model: Model,
     codebook: NDArray,
     n_frames: int = GEN_FRAMES,
     temperature: float = TEMPERATURE,
@@ -100,7 +91,7 @@ def main() -> None:
     out = args.out or args.image.with_name(f"{args.image.stem}_anim.gif")
 
     codebook = np.load(args.codebook)
-    model = load_model(args.model, device)
+    model = load_model(args.model, len(codebook), device)
     picture = load_picture(args.image)
     print(f"animating {args.image} ({SIZE}x{SIZE}) for {args.frames} frames on {device}")
     frames = animate(picture, model, codebook, args.frames, args.temperature)
