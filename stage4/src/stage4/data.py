@@ -7,6 +7,8 @@ from torch import Tensor
 
 from stage4 import tokenizer
 
+VAL_STRIDE = 7
+
 
 def make_pairs(data: Tensor, block_size: int, stride: int = 1) -> tuple[Tensor, Tensor]:
     n_windows = (len(data) - block_size) // stride
@@ -73,7 +75,12 @@ def build_dataset(
         streams.append(trn)
         starts.append(torch.arange(len(trn) - block_size) + offset)
         offset += len(trn)
-        xv, yv = make_pairs(val, block_size, stride=block_size)
+        # val target position in the frame is (start + block_size) % tokens_per_frame.
+        # A stride that's a multiple of tokens_per_frame (e.g. block_size) would
+        # always target the same patch; a small odd stride (coprime with 256)
+        # spreads targets over the whole frame. xv[0] still starts on a frame
+        # boundary, so generation from it stays aligned.
+        xv, yv = make_pairs(val, block_size, stride=VAL_STRIDE)
         xvs.append(xv)
         yvs.append(yv)
         if (i + 1) % 50 == 0 or i + 1 == len(npy_files):

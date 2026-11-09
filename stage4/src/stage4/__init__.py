@@ -3,32 +3,32 @@ from pathlib import Path
 
 import torch
 
+from stage4.chained import Chained
 from stage4.data import build_dataset
-from stage4.model import Mlp
 from stage4.predict import generate
 from stage4.train import evaluate, train
 from stage4.utils import save_gif
 from stage4.video_data import load_videos
 
 SIZE = 64  # frames are SIZE x SIZE pixels
-FPS = 5
+FPS = 12
 TOKENS_PER_FRAME = (SIZE // 4) ** 2  # 4x4-pixel patches -> 256 tokens at 64x64
-CONTEXT_FRAMES = 3
+CONTEXT_FRAMES = 15
 BLOCK_SIZE = TOKENS_PER_FRAME * CONTEXT_FRAMES
-GEN_FRAMES = 30
+GEN_FRAMES = 150
 GEN_LEN = TOKENS_PER_FRAME * GEN_FRAMES
 TEMPERATURE = 0.8
 FRAMES_DIR = Path("frames") / f"{SIZE}x{SIZE}_fps{FPS}"
 CODEBOOK_FILE = Path("frames") / "codebooks" / f"{SIZE}x{SIZE}_fps{FPS}.npy"
 MAX_CLIPS = None  # all clips
 EMBED_DIM = 64
-HIDDEN = [256] * 3
-STEPS = 20_000
+HIDDEN = 256  # Chained hidden_dim (RNN state size)
+STEPS = 200_000
 MODEL_FILE = "model.pt"
 LEARNING_RATE = 3e-4
 
 
-def _load_compatible(model: Mlp, path: str) -> bool:
+def _load_compatible(model: Chained, path: str) -> bool:
     if not os.path.exists(path):
         return False
     state = torch.load(path, map_location="cpu", weights_only=True)
@@ -54,7 +54,14 @@ def main() -> None:
         FRAMES_DIR, codebook, BLOCK_SIZE, TOKENS_PER_FRAME, MAX_CLIPS, 0.9
     )
 
-    model = Mlp(BLOCK_SIZE, tok.vocab_size(), EMBED_DIM, HIDDEN)
+    model = Chained(
+        BLOCK_SIZE,
+        tok.vocab_size(),
+        EMBED_DIM,
+        TOKENS_PER_FRAME,
+        HIDDEN,
+        tok.vocab_size(),
+    )
 
     _load_compatible(model, MODEL_FILE)
 
@@ -79,4 +86,4 @@ def main() -> None:
 
     gen_ids = generate(model, xv[0], GEN_LEN, TEMPERATURE)
     frames = tok.decode_frames(gen_ids, codebook, SIZE, SIZE)
-    save_gif(frames, "gen.gif")
+    save_gif(frames, "gen.gif", duration=1000 // FPS)  # real-time playback

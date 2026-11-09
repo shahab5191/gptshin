@@ -3,14 +3,14 @@ import math
 import torch
 from torch import Tensor, nn, optim
 
+from stage4.chained import Chained
 from stage4.data import Windows
-from stage4.model import Mlp
 from stage4.utils import KeyListener
 
 
 @torch.no_grad()
 def evaluate(
-    model: Mlp, x: Tensor, y: Tensor, batch_size: int = 4096
+    model: Chained, x: Tensor, y: Tensor, batch_size: int = 4096
 ) -> tuple[float, float]:
     model.eval()
     total_loss = 0.0
@@ -28,7 +28,7 @@ def evaluate(
 
 
 def train(
-    model: Mlp,
+    model: Chained,
     X: Tensor | Windows,
     y: Tensor,
     val_x: Tensor | None = None,
@@ -41,12 +41,6 @@ def train(
     weight_decay=0.01,
     save_path: str | None = None,
 ) -> tuple[list[float], list[float]]:
-    """Train; press "q" in the terminal to stop early.
-
-    With val data and save_path, the checkpoint is written only when val loss
-    improves, so save_path always holds the best model seen so far (including
-    the starting weights, so resuming never overwrites a better checkpoint).
-    """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)

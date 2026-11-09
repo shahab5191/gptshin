@@ -2,16 +2,16 @@ import torch
 from numpy.typing import NDArray
 from torch import Tensor
 
-from stage4.model import Mlp
+from stage4.chained import Chained
 
 
-def predict(model: Mlp, x: Tensor) -> Tensor:
+def predict(model: Chained, x: Tensor) -> Tensor:
     return model(x).argmax(dim=1)
 
 
 @torch.no_grad()
 def generate(
-    model: Mlp,
+    model: Chained,
     context: list[int] | Tensor | NDArray,
     n_tokens: int,
     temperature: float = 1.0,

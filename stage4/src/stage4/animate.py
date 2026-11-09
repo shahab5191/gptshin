@@ -20,6 +20,7 @@ from stage4 import (
     BLOCK_SIZE,
     CODEBOOK_FILE,
     CONTEXT_FRAMES,
+    FPS,
     EMBED_DIM,
     GEN_FRAMES,
     HIDDEN,
@@ -29,7 +30,7 @@ from stage4 import (
     TOKENS_PER_FRAME,
 )
 from stage4 import tokenizer as tok
-from stage4.model import Mlp
+from stage4.chained import Chained
 from stage4.predict import generate
 from stage4.utils import save_gif
 
@@ -45,8 +46,16 @@ def load_picture(path: Path, size: int = SIZE) -> NDArray:
     return np.asarray(img.crop((left, top, left + size, top + size)))
 
 
-def load_model(path: str | Path, device: str) -> Mlp:
-    model = Mlp(BLOCK_SIZE, tok.vocab_size(), EMBED_DIM, HIDDEN)
+def load_model(path: str | Path, device: str) -> Chained:
+    # must match the model built in stage4.main()
+    model = Chained(
+        BLOCK_SIZE,
+        tok.vocab_size(),
+        EMBED_DIM,
+        TOKENS_PER_FRAME,
+        HIDDEN,
+        tok.vocab_size(),
+    )
     state = torch.load(path, map_location="cpu", weights_only=True)
     try:
         model.load_state_dict(state)
@@ -61,7 +70,7 @@ def load_model(path: str | Path, device: str) -> Mlp:
 
 def animate(
     picture: NDArray,
-    model: Mlp,
+    model: Chained,
     codebook: NDArray,
     n_frames: int = GEN_FRAMES,
     temperature: float = TEMPERATURE,
@@ -95,7 +104,7 @@ def main() -> None:
     picture = load_picture(args.image)
     print(f"animating {args.image} ({SIZE}x{SIZE}) for {args.frames} frames on {device}")
     frames = animate(picture, model, codebook, args.frames, args.temperature)
-    save_gif(frames, out)
+    save_gif(frames, out, duration=1000 // FPS)  # real-time playback
     print(f"saved {len(frames)} frames to {out}")
 
 
