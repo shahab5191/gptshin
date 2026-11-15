@@ -1,0 +1,226 @@
+/home/shahab/Projects/gptshin/stage5/.venv/lib/python3.14/site-packages/triton/backends/nvidia/driver.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+vocab_size=12180
+checkpoint architecture changed - starting fresh
+step    1000/150000: train loss 101.1300 (ppl 83216945739263688801152440290670132796063744.0)   val loss 5.4145 (ppl 224.6)
+step    2000/150000: train loss 5.2534 (ppl 191.2)   val loss 5.1248 (ppl 168.1)
+step    3000/150000: train loss 5.0580 (ppl 157.3)   val loss 4.9927 (ppl 147.3)
+step    4000/150000: train loss 4.9629 (ppl 143.0)   val loss 4.9359 (ppl 139.2)
+step    5000/150000: train loss 4.9342 (ppl 139.0)   val loss 4.9263 (ppl 137.9)
+step    6000/150000: train loss 4.9327 (ppl 138.7)   val loss 4.9263 (ppl 137.9)
+step    7000/150000: train loss 4.9321 (ppl 138.7)   val loss 4.9242 (ppl 137.6)
+step    8000/150000: train loss 4.9248 (ppl 137.7)   val loss 4.9236 (ppl 137.5)
+step    9000/150000: train loss 4.9315 (ppl 138.6)   val loss 4.9229 (ppl 137.4)
+Model Stored at model.pt
+step   10000/150000: train loss 4.9950 (ppl 147.7)   val loss 4.9236 (ppl 137.5)
+step   11000/150000: train loss 4.9290 (ppl 138.2)   val loss 4.9244 (ppl 137.6)
+step   12000/150000: train loss 4.9178 (ppl 136.7)   val loss 4.9227 (ppl 137.4)
+step   13000/150000: train loss 4.9257 (ppl 137.8)   val loss 4.9238 (ppl 137.5)
+step   14000/150000: train loss 4.9182 (ppl 136.8)   val loss 4.9191 (ppl 136.9)
+step   15000/150000: train loss 5.3978 (ppl 220.9)   val loss 4.9210 (ppl 137.1)
+step   16000/150000: train loss 4.9233 (ppl 137.5)   val loss 4.9221 (ppl 137.3)
+step   17000/150000: train loss 4.9253 (ppl 137.7)   val loss 4.9183 (ppl 136.8)
+step   18000/150000: train loss 4.9238 (ppl 137.5)   val loss 4.9189 (ppl 136.9)
+step   19000/150000: train loss 4.9204 (ppl 137.1)   val loss 4.9237 (ppl 137.5)
+Model Stored at model.pt
+step   20000/150000: train loss 4.9265 (ppl 137.9)   val loss 4.9201 (ppl 137.0)
+step   21000/150000: train loss 4.9106 (ppl 135.7)   val loss 4.9205 (ppl 137.1)
+step   22000/150000: train loss 5.5287 (ppl 251.8)   val loss 4.9201 (ppl 137.0)
+step   23000/150000: train loss 4.9234 (ppl 137.5)   val loss 4.9143 (ppl 136.2)
+step   24000/150000: train loss 5.3487 (ppl 210.3)   val loss 4.9218 (ppl 137.3)
+step   25000/150000: train loss 4.9263 (ppl 137.9)   val loss 4.9113 (ppl 135.8)
+step   26000/150000: train loss 4.9169 (ppl 136.6)   val loss 4.9168 (ppl 136.6)
+step   27000/150000: train loss 4.9164 (ppl 136.5)   val loss 4.9158 (ppl 136.4)
+step   28000/150000: train loss 4.9245 (ppl 137.6)   val loss 4.9177 (ppl 136.7)
+step   29000/150000: train loss 4.9184 (ppl 136.8)   val loss 4.9194 (ppl 136.9)
+Model Stored at model.pt
+step   30000/150000: train loss 4.9224 (ppl 137.3)   val loss 4.9165 (ppl 136.5)
+step   31000/150000: train loss 4.9216 (ppl 137.2)   val loss 4.9184 (ppl 136.8)
+step   32000/150000: train loss 4.9207 (ppl 137.1)   val loss 4.9164 (ppl 136.5)
+step   33000/150000: train loss 4.9237 (ppl 137.5)   val loss 4.9186 (ppl 136.8)
+step   34000/150000: train loss 4.9205 (ppl 137.1)   val loss 4.9178 (ppl 136.7)
+step   35000/150000: train loss 4.9907 (ppl 147.0)   val loss 4.9157 (ppl 136.4)
+step   36000/150000: train loss 4.9092 (ppl 135.5)   val loss 4.9154 (ppl 136.4)
+step   37000/150000: train loss 4.9190 (ppl 136.9)   val loss 4.9181 (ppl 136.7)
+step   38000/150000: train loss 4.9158 (ppl 136.4)   val loss 4.9172 (ppl 136.6)
+step   39000/150000: train loss 4.9173 (ppl 136.6)   val loss 4.9157 (ppl 136.4)
+Model Stored at model.pt
+step   40000/150000: train loss 5.0917 (ppl 162.7)   val loss 4.9175 (ppl 136.7)
+step   41000/150000: train loss 4.9164 (ppl 136.5)   val loss 4.9161 (ppl 136.5)
+step   42000/150000: train loss 4.9240 (ppl 137.6)   val loss 4.9164 (ppl 136.5)
+step   43000/150000: train loss 5.2373 (ppl 188.2)   val loss 4.9168 (ppl 136.6)
+step   44000/150000: train loss 4.9642 (ppl 143.2)   val loss 4.9150 (ppl 136.3)
+step   45000/150000: train loss 5.1141 (ppl 166.3)   val loss 4.9162 (ppl 136.5)
+step   46000/150000: train loss 4.9877 (ppl 146.6)   val loss 4.9163 (ppl 136.5)
+step   47000/150000: train loss 4.9168 (ppl 136.6)   val loss 4.9181 (ppl 136.7)
+step   48000/150000: train loss 4.9183 (ppl 136.8)   val loss 4.9189 (ppl 136.9)
+step   49000/150000: train loss 4.9173 (ppl 136.6)   val loss 4.9168 (ppl 136.6)
+Model Stored at model.pt
+step   50000/150000: train loss 4.9328 (ppl 138.8)   val loss 4.9153 (ppl 136.4)
+step   51000/150000: train loss 4.9233 (ppl 137.5)   val loss 4.9158 (ppl 136.4)
+step   52000/150000: train loss 4.9154 (ppl 136.4)   val loss 4.9158 (ppl 136.4)
+step   53000/150000: train loss 4.9151 (ppl 136.3)   val loss 4.9161 (ppl 136.5)
+step   54000/150000: train loss 4.9207 (ppl 137.1)   val loss 4.9175 (ppl 136.7)
+step   55000/150000: train loss 4.9182 (ppl 136.8)   val loss 4.9167 (ppl 136.5)
+step   56000/150000: train loss 4.9482 (ppl 140.9)   val loss 4.9134 (ppl 136.1)
+step   57000/150000: train loss 5.0172 (ppl 151.0)   val loss 4.9155 (ppl 136.4)
+step   58000/150000: train loss 4.9241 (ppl 137.6)   val loss 4.9179 (ppl 136.7)
+step   59000/150000: train loss 4.9229 (ppl 137.4)   val loss 4.9160 (ppl 136.5)
+Model Stored at model.pt
+step   60000/150000: train loss 4.9182 (ppl 136.8)   val loss 4.9156 (ppl 136.4)
+step   61000/150000: train loss 4.9200 (ppl 137.0)   val loss 4.9155 (ppl 136.4)
+step   62000/150000: train loss 4.9225 (ppl 137.3)   val loss 4.9169 (ppl 136.6)
+step   63000/150000: train loss 4.9230 (ppl 137.4)   val loss 4.9154 (ppl 136.4)
+step   64000/150000: train loss 4.9234 (ppl 137.5)   val loss 4.9143 (ppl 136.2)
+step   65000/150000: train loss 4.9164 (ppl 136.5)   val loss 4.9132 (ppl 136.1)
+step   66000/150000: train loss 4.9190 (ppl 136.9)   val loss 4.9150 (ppl 136.3)
+step   67000/150000: train loss 4.9179 (ppl 136.7)   val loss 4.9149 (ppl 136.3)
+step   68000/150000: train loss 4.9239 (ppl 137.5)   val loss 4.9151 (ppl 136.3)
+step   69000/150000: train loss 4.9133 (ppl 136.1)   val loss 4.9154 (ppl 136.4)
+Model Stored at model.pt
+step   70000/150000: train loss 4.9153 (ppl 136.4)   val loss 4.9174 (ppl 136.6)
+step   71000/150000: train loss 4.9162 (ppl 136.5)   val loss 4.9156 (ppl 136.4)
+step   72000/150000: train loss 4.9129 (ppl 136.0)   val loss 4.9155 (ppl 136.4)
+step   73000/150000: train loss 4.9260 (ppl 137.8)   val loss 4.9164 (ppl 136.5)
+step   74000/150000: train loss 4.9446 (ppl 140.4)   val loss 4.9132 (ppl 136.1)
+step   75000/150000: train loss 4.9143 (ppl 136.2)   val loss 4.9136 (ppl 136.1)
+step   76000/150000: train loss 4.9100 (ppl 135.6)   val loss 4.9137 (ppl 136.1)
+step   77000/150000: train loss 4.9208 (ppl 137.1)   val loss 4.9144 (ppl 136.2)
+step   78000/150000: train loss 4.9236 (ppl 137.5)   val loss 4.9122 (ppl 135.9)
+step   79000/150000: train loss 4.9139 (ppl 136.2)   val loss 4.9117 (ppl 135.9)
+Model Stored at model.pt
+step   80000/150000: train loss 4.9243 (ppl 137.6)   val loss 4.9178 (ppl 136.7)
+step   81000/150000: train loss 4.9237 (ppl 137.5)   val loss 4.9137 (ppl 136.1)
+step   82000/150000: train loss 4.9310 (ppl 138.5)   val loss 4.9121 (ppl 135.9)
+step   83000/150000: train loss 4.9236 (ppl 137.5)   val loss 4.9125 (ppl 136.0)
+step   84000/150000: train loss 4.9223 (ppl 137.3)   val loss 4.9129 (ppl 136.0)
+step   85000/150000: train loss 4.9199 (ppl 137.0)   val loss 4.9123 (ppl 135.9)
+step   86000/150000: train loss 4.9207 (ppl 137.1)   val loss 4.9120 (ppl 135.9)
+step   87000/150000: train loss 4.9112 (ppl 135.8)   val loss 4.9139 (ppl 136.2)
+step   88000/150000: train loss 4.9226 (ppl 137.4)   val loss 4.9126 (ppl 136.0)
+step   89000/150000: train loss 4.9169 (ppl 136.6)   val loss 4.9125 (ppl 136.0)
+Model Stored at model.pt
+step   90000/150000: train loss 4.9092 (ppl 135.5)   val loss 4.9152 (ppl 136.3)
+step   91000/150000: train loss 4.9200 (ppl 137.0)   val loss 4.9130 (ppl 136.0)
+step   92000/150000: train loss 4.9252 (ppl 137.7)   val loss 4.9134 (ppl 136.1)
+step   93000/150000: train loss 4.9136 (ppl 136.1)   val loss 4.9131 (ppl 136.1)
+step   94000/150000: train loss 4.9193 (ppl 136.9)   val loss 4.9152 (ppl 136.4)
+step   95000/150000: train loss 4.9133 (ppl 136.1)   val loss 4.9152 (ppl 136.4)
+step   96000/150000: train loss 4.9302 (ppl 138.4)   val loss 4.9136 (ppl 136.1)
+step   97000/150000: train loss 4.9149 (ppl 136.3)   val loss 4.9136 (ppl 136.1)
+step   98000/150000: train loss 4.9143 (ppl 136.2)   val loss 4.9134 (ppl 136.1)
+step   99000/150000: train loss 4.9207 (ppl 137.1)   val loss 4.9121 (ppl 135.9)
+Model Stored at model.pt
+step  100000/150000: train loss 4.9227 (ppl 137.4)   val loss 4.9129 (ppl 136.0)
+step  101000/150000: train loss 4.9150 (ppl 136.3)   val loss 4.9135 (ppl 136.1)
+step  102000/150000: train loss 4.9153 (ppl 136.4)   val loss 4.9148 (ppl 136.3)
+step  103000/150000: train loss 4.9163 (ppl 136.5)   val loss 4.9121 (ppl 135.9)
+step  104000/150000: train loss 4.9096 (ppl 135.6)   val loss 4.9114 (ppl 135.8)
+step  105000/150000: train loss 4.9154 (ppl 136.4)   val loss 4.9103 (ppl 135.7)
+step  106000/150000: train loss 4.9202 (ppl 137.0)   val loss 4.9097 (ppl 135.6)
+step  107000/150000: train loss 4.9203 (ppl 137.0)   val loss 4.9148 (ppl 136.3)
+step  108000/150000: train loss 4.9247 (ppl 137.7)   val loss 4.9127 (ppl 136.0)
+step  109000/150000: train loss 4.9190 (ppl 136.9)   val loss 4.9114 (ppl 135.8)
+Model Stored at model.pt
+step  110000/150000: train loss 4.9132 (ppl 136.1)   val loss 4.9111 (ppl 135.8)
+step  111000/150000: train loss 4.9110 (ppl 135.8)   val loss 4.9125 (ppl 136.0)
+step  112000/150000: train loss 4.9149 (ppl 136.3)   val loss 4.9123 (ppl 136.0)
+step  113000/150000: train loss 4.9217 (ppl 137.2)   val loss 4.9121 (ppl 135.9)
+step  114000/150000: train loss 4.9208 (ppl 137.1)   val loss 4.9167 (ppl 136.5)
+step  115000/150000: train loss 4.9104 (ppl 135.7)   val loss 4.9117 (ppl 135.9)
+step  116000/150000: train loss 4.9159 (ppl 136.4)   val loss 4.9136 (ppl 136.1)
+step  117000/150000: train loss 4.9050 (ppl 135.0)   val loss 4.9148 (ppl 136.3)
+step  118000/150000: train loss 4.9103 (ppl 135.7)   val loss 4.9117 (ppl 135.9)
+step  119000/150000: train loss 4.9197 (ppl 137.0)   val loss 4.9129 (ppl 136.0)
+Model Stored at model.pt
+step  120000/150000: train loss 4.9173 (ppl 136.6)   val loss 4.9115 (ppl 135.8)
+step  121000/150000: train loss 4.9210 (ppl 137.1)   val loss 4.9135 (ppl 136.1)
+step  122000/150000: train loss 4.9138 (ppl 136.2)   val loss 4.9155 (ppl 136.4)
+step  123000/150000: train loss 4.9205 (ppl 137.1)   val loss 4.9132 (ppl 136.1)
+step  124000/150000: train loss 4.9152 (ppl 136.4)   val loss 4.9134 (ppl 136.1)
+step  125000/150000: train loss 4.9119 (ppl 135.9)   val loss 4.9119 (ppl 135.9)
+step  126000/150000: train loss 4.9195 (ppl 136.9)   val loss 4.9114 (ppl 135.8)
+step  127000/150000: train loss 4.9165 (ppl 136.5)   val loss 4.9114 (ppl 135.8)
+step  128000/150000: train loss 4.9239 (ppl 137.5)   val loss 4.9124 (ppl 136.0)
+step  129000/150000: train loss 4.9129 (ppl 136.0)   val loss 4.9129 (ppl 136.0)
+Model Stored at model.pt
+step  130000/150000: train loss 4.9189 (ppl 136.9)   val loss 4.9116 (ppl 135.9)
+step  131000/150000: train loss 4.9055 (ppl 135.0)   val loss 4.9120 (ppl 135.9)
+step  132000/150000: train loss 4.9207 (ppl 137.1)   val loss 4.9142 (ppl 136.2)
+step  133000/150000: train loss 4.9185 (ppl 136.8)   val loss 4.9137 (ppl 136.1)
+step  134000/150000: train loss 4.9092 (ppl 135.5)   val loss 4.9112 (ppl 135.8)
+step  135000/150000: train loss 4.9152 (ppl 136.3)   val loss 4.9112 (ppl 135.8)
+step  136000/150000: train loss 4.9090 (ppl 135.5)   val loss 4.9126 (ppl 136.0)
+step  137000/150000: train loss 4.9202 (ppl 137.0)   val loss 4.9107 (ppl 135.7)
+step  138000/150000: train loss 4.9173 (ppl 136.6)   val loss 4.9112 (ppl 135.8)
+step  139000/150000: train loss 4.9194 (ppl 136.9)   val loss 4.9137 (ppl 136.1)
+Model Stored at model.pt
+step  140000/150000: train loss 4.9260 (ppl 137.8)   val loss 4.9187 (ppl 136.8)
+step  141000/150000: train loss 4.9177 (ppl 136.7)   val loss 4.9134 (ppl 136.1)
+step  142000/150000: train loss 4.9172 (ppl 136.6)   val loss 4.9133 (ppl 136.1)
+step  143000/150000: train loss 4.9162 (ppl 136.5)   val loss 4.9122 (ppl 135.9)
+step  144000/150000: train loss 4.9177 (ppl 136.7)   val loss 4.9159 (ppl 136.4)
+step  145000/150000: train loss 4.9137 (ppl 136.1)   val loss 4.9138 (ppl 136.2)
+step  146000/150000: train loss 4.9234 (ppl 137.5)   val loss 4.9125 (ppl 136.0)
+step  147000/150000: train loss 4.9167 (ppl 136.6)   val loss 4.9134 (ppl 136.1)
+step  148000/150000: train loss 4.9246 (ppl 137.6)   val loss 4.9131 (ppl 136.1)
+step  149000/150000: train loss 4.9219 (ppl 137.3)   val loss 4.9157 (ppl 136.4)
+Model Stored at model.pt
+step  150000/150000: train loss 4.9163 (ppl 136.5)   val loss 4.9126 (ppl 136.0)
+saved model to model.pt
+final val loss 4.9126 (ppl 136.0)
+context=tensor([ 8722,     0, 11948,  8722,     0,  7507,     0,  1878,  8917,     0,
+         9557,  3873,     0,  9832,  9678,     0,  6928,     0,  6576,  6787,
+            0, 11948,  8722,     0,  3076,  9492,     0,  8426,  8818,  8482,
+            0, 10184,     0,  3081,  2372,     0,  3281,  5971,     0,  6576,
+         6787,     0,  3081,  2372,     0,  5791,  9678,     0,  8426,  8818,
+         8482,     0,  9077,  2625,     0,  3081,  2372,     0,  7567,     0,
+            1,     0,  1249,     0,  8134,  3720,  6204,     0,  6141,   445,
+            0,  7883,  9073,     0, 10184,     0, 11948,  8722,     0, 11948,
+         8722,     0,  3081,  2372,     0, 10184,     0, 11948,  8722,     0,
+        10184,     0, 11948,  8722,     0, 10184,     0, 11948,  8722,     0,
+        11948,  8722,     0,  3081,  2372,     0, 10184,     0, 11948,  8722,
+            0, 11948,  8722,     0,  9182,     0, 10184,     0, 11948,  8722,
+            0, 11948,  8722,     0,  9077,  2625,     0, 10184,     0, 11948,
+         8722,     0, 11948,  8722,     0,  2532,     0, 10184,     0, 11948,
+         8722,     0, 11948,  8722,     0,  7011,  2372,     0, 10184,     0,
+        11948,  8722,     0,  7507,     0, 11948,  8722,     0, 10184,     0,
+        11948,  8722,     0,  7507,     0,  7507,     0, 10184,     0, 11948,
+         8722,     0,  7507,     0, 10184,     0, 10184,     0, 11948,  8722,
+            0,  7507,     0,  9870,  2468,     0, 10184,     0, 11948,  8722,
+            0,  7507,     0,  3175,  8482,     0, 10184,     0, 11948,  8722,
+            0,  7507,     0,  3081,  2372,     0, 10184,     0, 11948,  8722,
+            0,  7507,     0,  9182,     0, 10184,     0, 11948,  8722,     0,
+         7507,     0,  9077,  2625,     0, 10184,     0, 11948,  8722,     0,
+         7507,     0,  2532,     0, 10184,     0, 11948,  8722,     0,  7507,
+            0,  7011,  2372,     0, 10184,     0, 11948,  8722,     0, 10184,
+            0, 11948,  8722,     0,  6141,   445,     0,  7883,  9073,     0,
+        10184,     0, 11948,  8722,     0, 11948,  8722,     0,  3081,  2372,
+            0, 10184,     0, 11948,  8722,     0, 10184,     0, 11948,  8722,
+            0,  9907,  2372,     0,  6576,  6787,     0,  7883,  9073,     0,
+        10527,     0,  6928,     0,  3076,  9492,     0,  8426,  8818,  8482,
+            0,  3281,  5971,     0,  5791,  9678,     0,  8426,  8818,  8482,
+            0, 10184,     0, 11948,  8722,     0, 11948,  8722,     0,  3081,
+         2372,     0,  4905,     0,  9870,  2468,     0,  7507,     0,  9077,
+         2625,     0,  3175,  8482,     0,  9182,     0,  4905,     0,  7507,
+            0, 11948,  8722,     0,  7507,     0, 10184,     0, 11948,  8722,
+            0,  9870,  2468,     0,  4905,     0,  7507,     0,  9077,  2625,
+            0, 11948,  8722,     0,  9182,     0,  3081,  2372,     0,  9077,
+         2625,     0,  4905,     0, 10184,     0,  3081,  2372,     0,  7507,
+            0, 11948,  8722,     0,  9870,  2468,     0, 10184,     0,  2978,
+            0, 10184,     0, 11948,  8722,     0,  9077,  2625,     0, 10184,
+            0,  9077,  2625,     0,  2978,     0,  2532,     0, 10184,     0,
+        10184,     0, 10184,     0,  2532,     0,  2978,     0,  7507,     0,
+         9182,     0, 11948,  8722,     0, 11948,  8722,     0,  7507,     0,
+         9182,     0,  2978,     0, 10184,     0,  3175,  8482,     0, 11948,
+         8722,     0,  3175,  8482,     0,  3081,  2372,     0,  3175,  8482,
+            0,  6231,     0,  9870,  2468,     0,  7507,     0,  9077,  2625,
+            0,  9870,  2468,     0,  9182,     0,  6231,     0,  7507,     0,
+        11948,  8722,     0, 11948,  8722,     0,  7011,  2372,     0,  7507,
+            0, 11948,  8722,     0,  6231,     0,  7507,     0,  9077,  2625,
+            0,  7507,     0,  7011,  2372,     0,  7507,     0,  7011,  2372,
+            0,  6231,     0, 10184,     0,  3081,  2372,     0, 10184,     0,
+        11948,  8722], device='cuda:0')
+ro zero one days such that new moon zero first quarter two five full moon five last quarter seven five or a c program lunar phases two zero zero five two zero two zero two zero zero five two zero zero six two zero zero seven two zero zero eight two zero zero nine two zero one zero two zero one one two zero one two two zero one three two zero one four two zero one five two zero one six two zero one seven two zero one eight two zero one nine two zero two zero lunar phases two zero zero five two zero two zero time moon phases ut new first quarter full last quarter two zero zero five jan three one seven four six jan one zero one two zero three jan one seven zero six five seven jan two five one zero three two feb two zero seven two seven feb eight two two two eight feb one six zero zero one six feb two four zero four five four mar three one seven three six mar one zero zero nine one zero mar one seven one nine one nine mar two five two zero  stthirdrlateeherlocerrwnerleawa et carwhrscons rantrumy  es waswor  parm eightm ere  itsemsev matbeg nedhetwo fac  flaproonscomlzeofing shifordimais postotheperand  aretthooftrobrethe  orandip  tinhancksorandaappshecluenlmiszeermsnssu insevoweisthihesson ronthe  ion ulahisgerbutabo bedimsliffro  dramovrov era ofleass rgy  seviewsequeans  tilthapho ruhatialkcro mun  count ltherel levsouzepra comali  anthiin shaashinsidforcen gra ablelg    thaandof  infro  ludinuyetof   ica  andhisthoimp foupumeasmintha eunrig weredly wy  onnin  al twosepnouipmtici h nddenter czenands siomajardntfor d ann b sse cat fivhad   ert

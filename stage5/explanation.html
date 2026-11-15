@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content-Dependent Weights — the "look-for" trick</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #9aa3b2;
+    --tok: #4da3ff;      /* token values */
+    --u: #3ddc84;        /* look-for vector */
+    --w: #ffb454;        /* weights */
+    --out: #c792ea;      /* output */
+    --old: #ff6b6b;      /* fixed weights */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 2rem 1.5rem 5rem;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .3rem; }
+  h2 { font-size: 1.15rem; margin: 2rem 0 .5rem; }
+  .sub { color: var(--muted); margin-bottom: 2rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+  }
+  table { border-collapse: collapse; }
+  td, th {
+    border: 1px solid var(--border);
+    padding: 2px 0;
+    text-align: center;
+    min-width: 52px;
+  }
+  th { color: var(--muted); font-weight: 500; font-size: .8rem; }
+  input {
+    width: 52px;
+    padding: 6px 2px;
+    text-align: center;
+    background: transparent;
+    color: inherit;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: .95rem;
+    font-family: ui-monospace, monospace;
+  }
+  input:hover { border-color: var(--border); }
+  input:focus { outline: none; border-color: #5a8cff; background: #1d2230; }
+  .tok input { color: var(--tok); }
+  .u input { color: var(--u); }
+  .old input { color: var(--old); }
+  .label { font-size: .85rem; color: var(--muted); margin: .5rem 0 .2rem; }
+  .tok { color: var(--tok); }
+  .u { color: var(--u); }
+  .w { color: var(--w); }
+  .out { color: var(--out); }
+  .old { color: var(--old); }
+  .mono { font-family: ui-monospace, monospace; }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; margin: .5rem 0 1rem; }
+  .steps button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .85rem;
+  }
+  .steps button.active { background: #2b3f66; border-color: #5a8cff; }
+  .math {
+    font-family: ui-monospace, monospace;
+    font-size: .95rem;
+    white-space: pre-wrap;
+    background: #0c0e12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .8rem 1rem;
+    overflow-x: auto;
+  }
+  .math .hl-tok { color: var(--tok); font-weight: 700; }
+  .math .hl-u { color: var(--u); font-weight: 700; }
+  .math .hl-w { color: var(--w); font-weight: 700; }
+  .math .hl-out { color: var(--out); font-weight: 700; }
+  .hl-old { color: var(--old); font-weight: 700; }
+  .note { font-size: .85rem; color: var(--muted); }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 260px; }
+  .kv { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 3px 0; }
+  .big { font-size: 1.05rem; }
+  .arrow { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Content-dependent weights <span class="pill" style="background:#223;color:#9aa3b2">the "look-for" trick</span></h1>
+  <p class="sub">Why we replaced a fixed number per position with a weight <em>computed from the token itself</em>.</p>
+
+  <div class="panel">
+    <h2 style="margin-top:0">1. The tokens (after embedding + position)</h2>
+    <p class="note">Each token is a vector of <b>D=3</b> numbers. Edit them and watch everything below change.</p>
+    <table id="tokenTable">
+      <thead><tr><th></th><th>dim 0</th><th>dim 1</th><th>dim 2</th></tr></thead>
+      <tbody>
+        <tr class="tok"><th>token "cat"</th><td><input type="number" step="0.1" value="1.0"></td><td><input type="number" step="0.1" value="0.2"></td><td><input type="number" step="0.1" value="0.5"></td></tr>
+        <tr class="tok"><th>token "the"</th><td><input type="number" step="0.1" value="0.1"></td><td><input type="number" step="0.1" value="0.8"></td><td><input type="number" step="0.1" value="0.3"></td></tr>
+        <tr class="tok"><th>token "run"</th><td><input type="number" step="0.1" value="0.4"></td><td><input type="number" step="0.1" value="0.1"></td><td><input type="number" step="0.1" value="0.9"></td></tr>
+      </tbody>
+    </table>
+
+    <div class="label u">2. The "look-for" vector <b>u</b> (one learned vector, not per-position)</div>
+    <table class="u"><tbody>
+      <tr><th>u</th>
+        <td><input type="number" step="0.1" value="0.7"></td>
+        <td><input type="number" step="0.1" value="0.1"></td>
+        <td><input type="number" step="0.1" value="0.5"></td>
+      </tr>
+    </tbody></table>
+    <p class="note">Think of <b class="u">u</b> as "what should a token look like to get a high weight". It has the same size as a token (D=3).</p>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">OLD way vs NEW way</h2>
+    <div class="row">
+      <div>
+        <div class="label old">OLD — fixed weight per position</div>
+        <table class="old"><tbody>
+          <tr><th>tokens_w</th>
+            <td><input type="number" step="0.1" value="0.5"></td>
+            <td><input type="number" step="0.1" value="0.3"></td>
+            <td><input type="number" step="0.1" value="0.2"></td>
+          </tr>
+        </tbody></table>
+        <p class="note">A stored number for each <em>position</em>. Token at position 0 always gets <span class="mono old">0.5</span> — even if the content changes to "the" or "quantum". The weight is blind to meaning.</p>
+      </div>
+      <div>
+        <div class="label w">NEW — weight computed from content</div>
+        <div class="math" id="newWeights">w[0] = u · cat = ?</div>
+        <p class="note">The weight is <b class="w">u · token</b>. "cat" gets one weight, "the" gets another — because their vectors differ. The weight now reflects <em>meaning</em>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Step-by-step (new way)</h2>
+    <div class="steps">
+      <button data-step="1" class="active">1 · dot product</button>
+      <button data-step="2">2 · scale & softmax</button>
+      <button data-step="3">3 · weighted sum</button>
+    </div>
+    <div class="math" id="stepOut"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Result</h2>
+    <div class="math" id="resultOut"></div>
+    <p class="note">The output vector is what feeds into your dense layers. In the real code there are <b>G</b> such <b class="u">u</b> vectors (one per group), each producing its own output — that's why the first dense layer takes <span class="mono">G × D</span> numbers.</p>
+  </div>
+
+</div>
+
+<script>
+  const tokInputs = () => [...document.querySelectorAll('#tokenTable .tok input')];
+  const uInputs   = () => [...document.querySelectorAll('table.u input')];
+  const oldInputs = () => [...document.querySelectorAll('table.old input')];
+
+  function tokens() {
+    const v = tokInputs().map(i => parseFloat(i.value) || 0);
+    return [v.slice(0,3), v.slice(3,6), v.slice(6,9)];
+  }
+  function uVec() { return uInputs().map(i => parseFloat(i.value) || 0); }
+  function oldW() { return oldInputs().map(i => parseFloat(i.value) || 0); }
+
+  function dot(a, b) { return a.reduce((s, x, i) => s + x * b[i], 0); }
+  function fmt(x) { return x.toFixed(2); }
+
+  function softmax(arr) {
+    const e = arr.map(x => Math.exp(x));
+    const s = e.reduce((a,b)=>a+b,0);
+    return e.map(x => x/s);
+  }
+
+  function render(step) {
+    const T = tokens();
+    const u = uVec();
+    const names = ['cat','the','run'];
+
+    // raw dot products (weights before softmax)
+    const raw = T.map(t => dot(u, t));
+    // scaled by sqrt(D)
+    const D = 3;
+    const scaled = raw.map(x => x / Math.sqrt(D));
+    const sm = softmax(scaled);
+
+    // new weights display
+    const nw = T.map((t,i) => `w[${i}] (${names[i]}) = u · ${names[i]} = ${fmt(raw[i])}`).join('\n');
+    document.getElementById('newWeights').textContent = nw;
+
+    // step output
+    let html = '';
+    if (step === 1) {
+      html = 'dot product = multiply each dim, then add\n\n';
+      T.forEach((t,i) => {
+        const terms = t.map((v,j) => `<span class="hl-u">${fmt(u[j])}</span>·<span class="hl-tok">${fmt(v)}</span>`).join(' + ');
+        html += `w[${i}] ${names[i]} = ${terms} = <span class="hl-w">${fmt(raw[i])}</span>\n`;
+      });
+      html += '\n(the raw dot product is the "similarity" between u and the token)';
+    } else if (step === 2) {
+      html = 'scale by 1/√D  (D=3, so ÷1.73) then softmax\n\n';
+      const t1 = scaled.map((v,i)=>`${names[i]}: ${fmt(raw[i])} → ${fmt(v)}`).join('\n');
+      html += t1 + '\n\nsoftmax → weights sum to 1:\n';
+      sm.forEach((v,i)=> html += `w[${i}] ${names[i]} = <span class="hl-w">${v.toFixed(3)}</span>\n`);
+      html += `sum = ${fmt(sm.reduce((a,b)=>a+b,0))}`;
+    } else if (step === 3) {
+      html = 'out = Σ_t w[t] · token[t]   (weighted sum)\n\n';
+      const out = [0,1,2].map(d => {
+        const terms = T.map((t,i) => `<span class="hl-w">${sm[i].toFixed(3)}</span>·<span class="hl-tok">${fmt(t[d])}</span>`).join(' + ');
+        const val = sm.reduce((s,w,i)=>s + w*T[i][d], 0);
+        return `out[${d}] = ${terms} = <span class="hl-out">${fmt(val)}</span>`;
+      }).join('\n');
+      html += out;
+    }
+    document.getElementById('stepOut').innerHTML = html;
+
+    // result
+    const out = [0,1,2].map(d => sm.reduce((s,w,i)=>s + w*T[i][d], 0));
+    let res = 'NEW (content) output  =  [' + out.map(fmt).join(', ') + ']\n\n';
+    const outOld = [0,1,2].map(d => oldW().reduce((s,w,i)=>s + w*T[i][d], 0));
+    res += 'OLD (fixed) output     =  [' + outOld.map(fmt).join(', ') + ']  ← weights don\'t care about content';
+    document.getElementById('resultOut').innerHTML = res;
+  }
+
+  let current = 1;
+  document.querySelectorAll('.steps button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      current = parseInt(btn.dataset.step);
+      document.querySelectorAll('.steps button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render(current);
+    });
+  });
+
+  document.querySelectorAll('input').forEach(i => i.addEventListener('input', () => render(current)));
+  render(current);
+</script>
+</body>
+</html>
