@@ -2,26 +2,29 @@ import os
 
 import torch
 
-from stage5 import tokenizer as tok
-from stage5.model import Mlp
-from stage5.train import evaluate, train
+from stage5.bpe import BPE
+from stage5.model import Model
+from stage5.train import evaluate, load_tokens, train, val_windows
 
-BLOCK_SIZE = 512
+BLOCK_SIZE = 8192
 GEN_LEN = 300
-DATA_FILE = "text8"
-TOKEN_FILE = "tokens.txt"
-MODEL_FILE = "model.pt"
-MAX_CHARS = 100_000_000
+TRAIN_FILE = "data/owt_bpe_train.bin"
+VAL_FILE = "data/owt_bpe_val.bin"
+TEXT8_VAL_FILE = "data/text8_bpe_val.bin"  # same text as the old text8 runs' val
+MODEL_FILE = "model_bpe.pt"  # new name, so the text8 model.pt is not overwritten
 EMBED_DIM = 512
-STEPS = 100_000
+STEPS = 15_000  # ~1 pass over ~2B tokens at 131k tokens/step
 LEARNING_RATE = 1e-4
-SAVE_EVERY = 10_000
-HIDDEN_W = 400
-HIDDEN_C = 20
-RESIDUAL = True
+SAVE_EVERY = 1_000
+LOG_EVERY = 250
+HIDDEN_W = 2048  # 4x EMBED_DIM, the transformer ratio
+N_LAYERS = 8  # repeated [Attention -> MLP] layers
+BLOCKS_PER_LAYER = 1  # residual blocks inside each layer's MLP
+BATCH_SIZE = 16  # effective batch per optimizer step (16 x 8192 = 131k tokens)
+ACCUM_STEPS = 16  # micro-batch = 16 // 16 = 1 window
 
 
-def _load_compatible(model: Mlp, path: str) -> bool:
+def _load_compatible(model: Model, path: str) -> bool:
     if not os.path.exists(path):
         return False
     state = torch.load(path, map_location="cpu", weights_only=True)
@@ -37,56 +40,63 @@ def _load_compatible(model: Mlp, path: str) -> bool:
 
 
 def main() -> None:
-    with open(DATA_FILE, "r", encoding="latin-1") as f:
-        text = f.read(MAX_CHARS)
-    if not text:
-        raise Exception("Empty input file")
-
-    tok.build_vocab(DATA_FILE, TOKEN_FILE)
-    vocab_size = tok.vocab_size()
+    bpe = BPE.load()
+    vocab_size = bpe.vocab_size
     print(f"{vocab_size=}")
+    # characters each token decodes to - turns loss into bits per character
+    char_len = torch.tensor([len(b) for b in bpe.vocab])
 
-    trn, val = tok.tokenize(text)
-    x, y = tok.make_pairs(trn, BLOCK_SIZE)
-    xv, yv = tok.make_pairs(val, BLOCK_SIZE, stride=BLOCK_SIZE)
+    data = load_tokens(TRAIN_FILE)
+    xv, yv = val_windows(load_tokens(VAL_FILE), BLOCK_SIZE)
+    xt, yt = val_windows(load_tokens(TEXT8_VAL_FILE), BLOCK_SIZE)
+    print(f"train {len(data):,} tokens, val {xv.numel():,}, text8 val {xt.numel():,}")
 
-    model = Mlp(
+    model = Model(
         BLOCK_SIZE,
         vocab_size,
         EMBED_DIM,
         HIDDEN_W,
-        HIDDEN_C,
-        RESIDUAL,
+        BLOCKS_PER_LAYER,
+        N_LAYERS,
     )
 
     _load_compatible(model, MODEL_FILE)
 
     train(
         model,
-        x,
-        y,
+        data,
+        char_len,
         val_x=xv,
         val_y=yv,
         steps=STEPS,
         lr=LEARNING_RATE,
         save_path=MODEL_FILE,
         save_every=SAVE_EVERY,
+        log_every=LOG_EVERY,
+        batch_size=BATCH_SIZE,
+        accum_steps=ACCUM_STEPS,
     )
     torch.save(model.state_dict(), MODEL_FILE)
     print(f"saved model to {MODEL_FILE}")
     device = model.device
 
-    val_loss, val_ppl = evaluate(model, xv, yv)
-    print(f"final val loss {val_loss:.4f} (ppl {val_ppl:.1f})")
+    for name, x, y in (("owt val", xv, yv), ("text8 val", xt, yt)):
+        loss, ppl, bpc = evaluate(
+            model, x, y, char_len, batch_size=BATCH_SIZE // ACCUM_STEPS
+        )
+        print(f"final {name:<9} loss {loss:.4f} (ppl {ppl:.1f})  bpc {bpc:.3f}")
 
+    val = load_tokens(VAL_FILE)
     start = torch.randint(0, len(val) - BLOCK_SIZE, (1,)).item()
-    context = val[start : start + BLOCK_SIZE].to(device)
-    print(f"{context=}")
+    context = torch.from_numpy(val[start : start + BLOCK_SIZE].astype("int64")).to(
+        device
+    )
     generated = context.tolist()
+    print(f"prompt: ...{bpe.decode(generated[-60:])}")
     for _ in range(GEN_LEN):
         logits = model(context.unsqueeze(0))
         probs = logits[0, -1].softmax(dim=-1)
         nxt = torch.multinomial(probs, 1).item()
         generated.append(nxt)
         context = torch.tensor(generated[-BLOCK_SIZE:], device=device)
-    print(tok.decode(generated))
+    print(f"generated: {bpe.decode(generated[-GEN_LEN:])}")

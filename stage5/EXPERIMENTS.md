@@ -24,9 +24,10 @@ STEPS      = 100_000
 batch (train & eval) = 64
 ```
 
-Result (fill in when done):
+Result:
 ```
-final val loss = ____  (ppl ____)
+final train ppl = 8.0   (train loss 2.079)
+final val   ppl = 8.7   (val loss 2.163)   ← baseline for comparison
 ```
 
 ## Run 2 — TOMORROW: collapsed (1-token prediction) + bigger context
