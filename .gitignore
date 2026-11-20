@@ -21,3 +21,6 @@ dist/
 build/
 *.egg-info/
 The target/ and .venv/ lines (unanchored) will also cover stage1/target/ and stage2/.venv/.
+
+# Stage 5 datasets
+stage5/data/

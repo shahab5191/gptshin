@@ -13,7 +13,7 @@ VAL_FILE = "data/owt_bpe_val.bin"
 TEXT8_VAL_FILE = "data/text8_bpe_val.bin"  # same text as the old text8 runs' val
 MODEL_FILE = "model_bpe.pt"  # new name, so the text8 model.pt is not overwritten
 EMBED_DIM = 512
-STEPS = 15_000  # ~1 pass over ~2B tokens at 131k tokens/step
+STEPS = 100  # ~1 pass over ~2B tokens at 131k tokens/step
 LEARNING_RATE = 1e-4
 SAVE_EVERY = 1_000
 LOG_EVERY = 250
@@ -24,7 +24,7 @@ BATCH_SIZE = 16  # effective batch per optimizer step (16 x 8192 = 131k tokens)
 ACCUM_STEPS = 16  # micro-batch = 16 // 16 = 1 window
 
 
-def _load_compatible(model: Model, path: str) -> bool:
+def load_compatible(model: Model, path: str) -> bool:
     if not os.path.exists(path):
         return False
     state = torch.load(path, map_location="cpu", weights_only=True)
@@ -60,7 +60,7 @@ def main() -> None:
         N_LAYERS,
     )
 
-    _load_compatible(model, MODEL_FILE)
+    load_compatible(model, MODEL_FILE)
 
     train(
         model,

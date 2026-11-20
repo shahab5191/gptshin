@@ -1,5 +1,42 @@
 # stage5 — Experiments log
 
+## v2 — BPE + OpenWebText + real transformer (96.5M params)
+
+**Result: ~1.21 bpc (bits/char) on OpenWebText val.** Train/val nearly equal → no overfitting.
+
+Architecture (`model.py`):
+- BPE tokenizer (12,288 vocab) — replaced the word/junk tokenizer
+- `embed + pos (8192 context) → 8 × [LayerNorm → Attention, LayerNorm → MLP] → LayerNorm → tied output`
+- pre-norm, residuals, causal mask, single-head attention
+
+Config (`__init__.py`):
+```
+BLOCK_SIZE = 8192
+EMBED_DIM = 512
+HIDDEN_W   = 2048   (4x embed, transformer ratio)
+N_LAYERS   = 8
+BLOCKS_PER_LAYER = 1
+LEARNING_RATE = 1e-4
+STEPS = 15_000   (~1 epoch over 2B tokens)
+BATCH_SIZE = 16, ACCUM_STEPS = 16   (131k tokens/step, micro-batch 1)
+```
+
+Data: OpenWebText (~2.03B tokens), BPE-encoded. Params: 96.5M (embed 6.3M, pos 4.2M, layers 86.1M).
+
+Result:
+```
+final val bpc ~1.21   (train ≈ val, clean generalization)
+~1 epoch ≈ Chinchilla-optimal (20 × params ≈ 1.9B tokens) for 96.5M
+```
+
+Reference: GPT-2 (117M) ~1.0–1.1 bpc on enwik8 (cleaner corpus than OWT, so not directly comparable).
+
+Next: **multi-head attention** (still single-head `W_q`), then scale model + data together.
+
+---
+
+## Legacy (v1 — text8 word-tokenizer)
+
 ## Architecture (current, both runs)
 
 Self-attention MLP language model:

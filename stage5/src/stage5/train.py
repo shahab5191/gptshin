@@ -135,7 +135,7 @@ def train(
             running_nats += loss.item() * yb.numel()
             running_chars += char_len_dev[yb].sum().item()
         grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), 1.0)
-        if not torch.isinf(grad_norm):
+        if not torch.math.isfinite(grad_norm):
             running_gn_max = max(running_gn_max, grad_norm.item())
             print(f"grad_norm max {running_gn_max:.2f}")
             optimizer.zero_grad()

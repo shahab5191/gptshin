@@ -21,7 +21,8 @@ class Attention(nn.Module):
         q = self.W_q(x)
         w = torch.einsum("btd,bsd->bts", q, x)
         w = w / (self.embed_dim**0.5)
-        w = w.masked_fill(causal_mask, float("-inf"))
+        T = w.shape[-1]
+        w = w.masked_fill(causal_mask[:T, :T], float("-inf"))
         w = w.softmax(dim=-1)
         return torch.einsum("bts,bsd->btd", w, x)
 
@@ -119,7 +120,7 @@ class Model(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.embed(x) + self.pos_embed.weight
+        x = self.embed(x) + self.pos_embed.weight[: x.shape[1]]
         for layer in self.layers:
             x = layer(x, self.causal_mask)
         return F.linear(self.norm_f(x), self.embed.weight)
