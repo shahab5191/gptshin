@@ -21,6 +21,7 @@ CONFIG = {
     "hidden_w": 2048,
     "blocks_per_layer": 1,
     "n_layers": 8,
+    "num_heads": 8,
 }
 MODEL_FILE = "model_bpe.pt"
 
@@ -36,6 +37,7 @@ def load_model(path: str = MODEL_FILE, device: str | None = None) -> tuple[Model
         CONFIG["hidden_w"],
         CONFIG["blocks_per_layer"],
         CONFIG["n_layers"],
+        CONFIG["num_heads"],
     )
     model.load_state_dict(torch.load(path, map_location=device, weights_only=True))
     model.to(device)

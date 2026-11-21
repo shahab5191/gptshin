@@ -19,6 +19,7 @@ SAVE_EVERY = 1_000
 LOG_EVERY = 250
 HIDDEN_W = 2048  # 4x EMBED_DIM, the transformer ratio
 N_LAYERS = 8  # repeated [Attention -> MLP] layers
+NUM_HEADS = 8  # attention heads; must divide EMBED_DIM
 BLOCKS_PER_LAYER = 1  # residual blocks inside each layer's MLP
 BATCH_SIZE = 16  # effective batch per optimizer step (16 x 8192 = 131k tokens)
 ACCUM_STEPS = 16  # micro-batch = 16 // 16 = 1 window
@@ -58,6 +59,7 @@ def main() -> None:
         HIDDEN_W,
         BLOCKS_PER_LAYER,
         N_LAYERS,
+        NUM_HEADS,
     )
 
     load_compatible(model, MODEL_FILE)
