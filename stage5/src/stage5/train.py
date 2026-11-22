@@ -77,10 +77,11 @@ def evaluate(
     for i in range(0, x.shape[0], batch_size):
         xb = x[i : i + batch_size].to(model.device)
         yb = y[i : i + batch_size].to(model.device)
-        logits = model(xb)
-        loss = nn.functional.cross_entropy(
-            logits.reshape(-1, logits.shape[-1]), yb.reshape(-1), reduction="sum"
-        )
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            logits = model(xb)
+            loss = nn.functional.cross_entropy(
+                logits.reshape(-1, logits.shape[-1]), yb.reshape(-1), reduction="sum"
+            )
         total_loss += loss.item()
         total_tokens += yb.numel()
         total_chars += char_len[yb].sum().item()
