@@ -12,14 +12,14 @@ TRAIN_FILE = "data/owt_bpe_train.bin"
 VAL_FILE = "data/owt_bpe_val.bin"
 TEXT8_VAL_FILE = "data/text8_bpe_val.bin"  # same text as the old text8 runs' val
 MODEL_FILE = "model_bpe.pt"  # new name, so the text8 model.pt is not overwritten
-EMBED_DIM = 512
+EMBED_DIM = 768
 STEPS = 20_000  # ~1 pass over ~2B tokens at 131k tokens/step
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 6e-5
 SAVE_EVERY = 1_000
 LOG_EVERY = 250
-HIDDEN_W = 2048  # 4x EMBED_DIM, the transformer ratio
-N_LAYERS = 8  # repeated [Attention -> MLP] layers
-NUM_HEADS = 8  # attention heads; must divide EMBED_DIM
+HIDDEN_W = 3072  # 4x EMBED_DIM, the transformer ratio
+N_LAYERS = 12  # repeated [Attention -> MLP] layers
+NUM_HEADS = 12  # attention heads; must divide EMBED_DIM
 BLOCKS_PER_LAYER = 0  # residual blocks inside each layer's MLP
 BATCH_SIZE = 16  # effective batch per optimizer step (16 x 8192 = 131k tokens)
 ACCUM_STEPS = 16  # micro-batch = 16 // 16 = 1 window
